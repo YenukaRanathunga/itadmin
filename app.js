@@ -421,45 +421,45 @@ function renderAssets() {
         <span class="asset-tag-badge" style="cursor: pointer;" title="Click to Edit" onclick="openEditAssetModal('${asset.id}')">${escapeHtml(asset.id)}</span>
       </td>
       <td>
-        <div style="font-weight: 700; color: #1e293b; cursor: pointer;" title="Click to Edit" onclick="openEditAssetModal('${asset.id}')">${escapeHtml(asset.model)}</div>
+        <div style="font-weight: 700; color: var(--text-main); cursor: pointer;" title="Click to Edit" onclick="openEditAssetModal('${asset.id}')">${escapeHtml(asset.model)}</div>
         ${asset.serial ? `
-          <div style="font-size: 11px; color: #64748b; font-family: monospace;">S/N: ${escapeHtml(asset.serial)}</div>
+          <div style="font-size: 11px; color: var(--text-muted); font-family: monospace;">S/N: ${escapeHtml(asset.serial)}</div>
         ` : `
-          <div style="font-size: 11px; color: #d97706; font-style: italic;">⚠️ S/N: Not Entered (Click Edit to add)</div>
+          <div style="font-size: 11px; color: var(--warning); font-style: italic;">⚠️ S/N: Not Entered (Click Edit to add)</div>
         `}
-        <div style="font-size: 11px; color: #475569; margin-top: 2px;">${escapeHtml(asset.specs || 'N/A')}</div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${escapeHtml(asset.specs || 'N/A')}</div>
       </td>
       <td>
         <span class="badge ${badgeClass}">${escapeHtml(asset.status)}</span>
-        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Cond: ${escapeHtml(asset.condition || 'Good')}</div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Cond: ${escapeHtml(asset.condition || 'Good')}</div>
       </td>
       <td>
-        <div style="font-weight: 600; color: #334155;">📍 ${escapeHtml(branch.name)}</div>
+        <div style="font-weight: 600; color: var(--text-main);">📍 ${escapeHtml(branch.name)}</div>
       </td>
       <td>
         ${asset.status === 'Assigned' && asset.assignedTo ? `
-          <div style="font-weight: 600; color: #1e293b;">👤 ${escapeHtml(asset.assignedTo)}</div>
-          <div style="font-size: 11px; color: #64748b;">Dept: ${escapeHtml(asset.assignedDept || 'General')}</div>
-          ${asset.assignedDate ? `<div style="font-size: 11px; color: #94a3b8;">Since: ${asset.assignedDate}</div>` : ''}
+          <div style="font-weight: 600; color: var(--text-main);">👤 ${escapeHtml(asset.assignedTo)}</div>
+          <div style="font-size: 11px; color: var(--text-muted);">Dept: ${escapeHtml(asset.assignedDept || 'General')}</div>
+          ${asset.assignedDate ? `<div style="font-size: 11px; color: var(--text-muted);">Since: ${asset.assignedDate}</div>` : ''}
         ` : `
-          <span style="color: #94a3b8; font-style: italic;">${asset.status === 'In Stock' ? 'Available in Store' : 'N/A'}</span>
+          <span style="color: var(--text-muted); font-style: italic;">${asset.status === 'In Stock' ? 'Available in Store' : 'N/A'}</span>
         `}
       </td>
       <td>
         ${asset.previousUser ? `
-          <div style="font-weight: 600; color: #2563eb;">👤 ${escapeHtml(asset.previousUser)}</div>
+          <div style="font-weight: 600; color: var(--primary);">👤 ${escapeHtml(asset.previousUser)}</div>
         ` : `
-          <span style="color: #cbd5e1;">-</span>
+          <span style="color: var(--border);">-</span>
         `}
       </td>
       <td>
-        <div style="font-size: 11px; color: #475569; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(asset.notes || '')}">
+        <div style="font-size: 11px; color: var(--text-muted); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(asset.notes || '')}">
           ${escapeHtml(asset.notes || '-')}
         </div>
       </td>
       <td>
         <div style="display: flex; gap: 4px; align-items: center;">
-          <button class="btn btn-sm btn-outline" style="color: #2563eb; border-color: #93c5fd; font-weight: 600; padding: 4px 8px;" title="Edit Laptop Details" onclick="openEditAssetModal('${asset.id}')">
+          <button class="btn btn-sm btn-outline" style="color: var(--primary); font-weight: 600; padding: 4px 8px;" title="Edit Laptop Details" onclick="openEditAssetModal('${asset.id}')">
             ✏️ Edit
           </button>
           <button class="btn btn-sm btn-outline" title="Print Handover / Gate Pass" onclick="openHandoverForAsset('${asset.id}')">
