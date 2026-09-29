@@ -104,27 +104,27 @@ function renderMapMarkers() {
     const popupContent = `
       <div class="map-popup-card">
         <div class="popup-header" style="border-bottom: 2px solid ${markerColor}; padding-bottom: 6px; margin-bottom: 8px;">
-          <h4 style="margin: 0; font-size: 15px; font-weight: 700; color: #1e293b;">${escapeHtml(branch.name)}</h4>
+          <h4 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--text-main);">${escapeHtml(branch.name)}</h4>
           <span class="badge ${isHQ ? 'badge-primary' : 'badge-neutral'}" style="font-size: 11px; margin-top: 3px; display: inline-block;">
             ${isHQ ? 'Main Office / IT Base' : escapeHtml(branch.code || 'Branch')}
           </span>
         </div>
         
-        <p style="margin: 4px 0; font-size: 12px; color: #475569;">
+        <p style="margin: 4px 0; font-size: 12px; color: var(--text-muted);">
           <strong>📍 Address:</strong> ${escapeHtml(branch.address)}
         </p>
-        <p style="margin: 4px 0; font-size: 12px; color: #475569;">
+        <p style="margin: 4px 0; font-size: 12px; color: var(--text-muted);">
           <strong>👤 Contact:</strong> ${escapeHtml(branch.contactPerson || 'N/A')}
         </p>
-        <p style="margin: 4px 0; font-size: 12px; color: #475569;">
-          <strong>📞 Phone:</strong> <a href="tel:${branch.phone}" style="color: #2563eb; text-decoration: none;">${escapeHtml(branch.phone || 'N/A')}</a>
+        <p style="margin: 4px 0; font-size: 12px; color: var(--text-muted);">
+          <strong>📞 Phone:</strong> <a href="tel:${branch.phone}" style="color: var(--primary); text-decoration: none;">${escapeHtml(branch.phone || 'N/A')}</a>
         </p>
         
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px; margin: 8px 0; display: flex; justify-content: space-between; font-size: 12px;">
-          <div><strong style="color: #059669;">💻 Total:</strong> ${branchAssets.length}</div>
-          <div><strong style="color: #2563eb;">⚡ In-Use:</strong> ${assignedCount}</div>
-          ${inStockCount > 0 ? `<div><strong style="color: #10b981;">📦 Stock:</strong> ${inStockCount}</div>` : ''}
-          ${repairCount > 0 ? `<div><strong style="color: #ea580c;">⚠️ Repair:</strong> ${repairCount}</div>` : ''}
+        <div class="map-popup-stats" style="background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; margin: 8px 0; display: flex; justify-content: space-between; font-size: 12px;">
+          <div><strong style="color: var(--success);">💻 Total:</strong> ${branchAssets.length}</div>
+          <div><strong style="color: var(--primary);">⚡ In-Use:</strong> ${assignedCount}</div>
+          ${inStockCount > 0 ? `<div><strong style="color: var(--success);">📦 Stock:</strong> ${inStockCount}</div>` : ''}
+          ${repairCount > 0 ? `<div><strong style="color: var(--warning);">⚠️ Repair:</strong> ${repairCount}</div>` : ''}
         </div>
 
         ${pendingVisits.length > 0 ? `

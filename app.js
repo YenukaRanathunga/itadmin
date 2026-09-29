@@ -134,8 +134,39 @@ function saveVisits(visits) {
   persistToServer();
 }
 
+// --- Theme Controller (Dark / Light Mode) ---
+function initTheme() {
+  const currentTheme = localStorage.getItem('nexusit_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', currentTheme);
+  updateThemeButton(currentTheme);
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('nexusit_theme', newTheme);
+  updateThemeButton(newTheme);
+  showToast(`Switched to ${newTheme === 'dark' ? 'Dark' : 'Light'} Mode`, 'info');
+}
+
+function updateThemeButton(theme) {
+  const btn = document.getElementById('themeToggleBtn');
+  if (!btn) return;
+  if (theme === 'dark') {
+    btn.innerHTML = '☀️ Light Mode';
+    btn.title = 'Switch to Light Mode';
+  } else {
+    btn.innerHTML = '🌙 Dark Mode';
+    btn.title = 'Switch to Dark Mode';
+  }
+}
+
 // --- Application Initialization ---
 document.addEventListener('DOMContentLoaded', async () => {
+  // Initialize theme button & state
+  initTheme();
+
   // Sync with server if running on http://localhost:5000
   await syncWithServer();
 
