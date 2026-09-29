@@ -4,7 +4,8 @@
 const STORAGE_KEYS = {
   ASSETS: 'nexusit_assets_v1',
   BRANCHES: 'nexusit_branches_v1',
-  VISITS: 'nexusit_visits_v1'
+  VISITS: 'nexusit_visits_v1',
+  TRANSFERS: 'nexusit_transfers_v1'
 };
 
 let isServerConnected = false;
@@ -27,6 +28,9 @@ async function syncWithServer(isRetry = false) {
         localStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(data.assets));
         localStorage.setItem(STORAGE_KEYS.BRANCHES, JSON.stringify(data.branches));
         localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(data.visits));
+        if (data.transfers) {
+          localStorage.setItem(STORAGE_KEYS.TRANSFERS, JSON.stringify(data.transfers));
+        }
         isServerConnected = true;
         updateServerStatusBadge(true);
         if (isRetry) {
@@ -34,6 +38,7 @@ async function syncWithServer(isRetry = false) {
           renderAssets();
           renderBranchesList();
           renderVisits();
+          renderTransferHistory();
         }
         return true;
       }
@@ -52,7 +57,8 @@ async function persistToServer() {
     const payload = {
       branches: getBranches(),
       assets: getAssets(),
-      visits: getVisits()
+      visits: getVisits(),
+      transfers: getTransfers()
     };
     const url = getApiEndpoint('/api/save');
     const res = await fetch(url, {
@@ -134,6 +140,19 @@ function saveVisits(visits) {
   persistToServer();
 }
 
+function getTransfers() {
+  const data = localStorage.getItem(STORAGE_KEYS.TRANSFERS);
+  if (data) {
+    try { return JSON.parse(data); } catch(e) {}
+  }
+  return [];
+}
+
+function saveTransfers(transfers) {
+  localStorage.setItem(STORAGE_KEYS.TRANSFERS, JSON.stringify(transfers));
+  persistToServer();
+}
+
 // --- Theme Controller (Dark / Light Mode) ---
 function initTheme() {
   const currentTheme = localStorage.getItem('nexusit_theme') || 'dark';
@@ -192,6 +211,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderVisits();
   populateHandoverSelectors();
   renderDamagedDisposed();
+  renderTransferHistory();
+  updateTransferPreview();
 
   // Setup tab navigation
   setupTabs();
@@ -479,8 +500,8 @@ function renderAssets() {
           <button class="btn btn-sm btn-outline" style="color: var(--primary); font-weight: 600; padding: 4px 8px;" title="Edit Laptop Details" onclick="openEditAssetModal('${asset.id}')">
             ✏️ Edit
           </button>
-          <button class="btn btn-sm btn-outline" title="Print Handover / Gate Pass" onclick="openHandoverForAsset('${asset.id}')">
-            📄 Form
+          <button class="btn btn-sm btn-outline" style="color: #059669; font-weight: 600; padding: 4px 8px;" title="Transfer Laptop to Office / User" onclick="openHandoverForAsset('${asset.id}')">
+            🔄 Transfer
           </button>
           <button class="btn btn-sm btn-danger" style="padding: 4px 6px;" title="Delete" onclick="deleteAsset('${asset.id}')">
             🗑️
@@ -1065,39 +1086,63 @@ function deleteVisit(visitId) {
   renderDashboard();
 }
 
-// --- Laptop Transfer & Handover Hub ---
-function populateHandoverSelectors() {
+// --- Laptop Transfer & User Handover Hub ---
+function populateHandoverSelectors(filterText = '') {
   const assets = getAssets();
   const branches = getBranches();
   const select = document.getElementById('handoverAssetSelect');
   if (!select) return;
 
   const currentVal = select.value;
-  select.innerHTML = '<option value="">-- Choose a Laptop to Transfer --</option>';
+  select.innerHTML = '<option value="">-- Click here to Select Laptop (Shows Asset No & Specs) --</option>';
   const eligibleAssets = assets.filter(a => a.status !== 'Decommissioned');
-  eligibleAssets.forEach(a => {
+
+  const search = (filterText || '').toLowerCase().trim();
+  const matched = eligibleAssets.filter(a => {
+    if (!search) return true;
+    const combined = `${a.id} ${a.model} ${a.serial || ''} ${a.specs || ''} ${a.assignedTo || ''} ${a.previousUser || ''}`.toLowerCase();
+    return combined.includes(search);
+  });
+
+  matched.forEach(a => {
     const branch = branches.find(b => b.id === a.branchId) || { name: 'Main Store' };
     const opt = document.createElement('option');
     opt.value = a.id;
-    let label = `💻 [${a.id}] ${a.model}`;
+    let label = `🏷️ Asset #[${a.id}] • ${a.model}`;
+    if (a.specs) label += ` (${a.specs})`;
+    if (a.previousUser) label += ` | Prev: ${a.previousUser}`;
     if (a.status === 'Maintenance') {
-      label += ` • (⚠️ Under Repair @ ${branch.name})`;
+      label += ` | (⚠️ Under Repair @ ${branch.name})`;
     } else if (a.assignedTo) {
-      label += ` • (User: ${a.assignedTo} @ ${branch.name})`;
+      label += ` | User: ${a.assignedTo} @ ${branch.name}`;
     } else {
-      label += ` • (In Stock @ ${branch.name})`;
+      label += ` | In Stock @ ${branch.name}`;
     }
     opt.textContent = label;
     select.appendChild(opt);
   });
 
-  if (currentVal && eligibleAssets.some(a => a.id === currentVal)) {
+  if (currentVal && matched.some(a => a.id === currentVal)) {
     select.value = currentVal;
+  } else if (matched.length === 1 && search) {
+    select.value = matched[0].id;
+    loadHandoverAssetData();
+  }
+}
+
+function filterTransferLaptopOptions(searchVal) {
+  populateHandoverSelectors(searchVal);
+  const select = document.getElementById('handoverAssetSelect');
+  if (select && select.value) {
+    loadHandoverAssetData();
   }
 }
 
 function openHandoverForAsset(assetId) {
   switchTab('handover');
+  const search = document.getElementById('transferSearchLaptop');
+  if (search) search.value = '';
+  populateHandoverSelectors();
   const select = document.getElementById('handoverAssetSelect');
   if (select) {
     select.value = assetId;
@@ -1106,7 +1151,7 @@ function openHandoverForAsset(assetId) {
 }
 
 function loadHandoverAssetData() {
-  const assetId = document.getElementById('handoverAssetSelect').value;
+  const assetId = document.getElementById('handoverAssetSelect')?.value;
   const assets = getAssets();
   const branches = getBranches();
   const asset = assets.find(a => a.id === assetId);
@@ -1117,39 +1162,182 @@ function loadHandoverAssetData() {
 
   if (!asset) {
     if (activeCard) activeCard.style.display = 'none';
-    generateHandoverPreview();
+    updateTransferPreview();
     return;
   }
 
-  // Populate active asset info pill
+  // Populate high-visibility active asset profile card
   if (activeCard) {
     const currentBranch = branches.find(b => b.id === asset.branchId) || { name: 'HQ / Main Store' };
     activeCard.style.display = 'block';
     activeCard.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <span style="font-weight: 700; color: var(--text-main); font-size: 13px;">💻 [Tag ${asset.id}] ${escapeHtml(asset.model)}</span>
-        <span class="badge ${asset.status === 'In Stock' ? 'badge-success' : 'badge-primary'}">${escapeHtml(asset.status)}</span>
-      </div>
-      <div style="display: flex; gap: 14px; flex-wrap: wrap; color: var(--text-muted); font-size: 11px;">
-        <div>📍 Current Branch: <strong style="color: var(--text-main);">${escapeHtml(currentBranch.name)}</strong></div>
-        <div>👤 Current User: <strong style="color: var(--text-main);">${asset.assignedTo ? escapeHtml(asset.assignedTo) : '(In Stock / No User)'}</strong></div>
-        ${asset.previousUser ? `<div>⏪ Previous User: <strong style="color: var(--primary);">${escapeHtml(asset.previousUser)}</strong></div>` : ''}
+      <div style="background: var(--bg-card); border: 2px solid var(--primary); border-radius: var(--radius-sm); padding: 14px; box-shadow: var(--shadow-sm);">
+        <!-- Top Row: Big Asset No & Status -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px dashed var(--border); padding-bottom: 8px;">
+          <div>
+            <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Asset Tag / Number</span>
+            <div style="font-size: 18px; font-weight: 800; color: var(--primary); font-family: monospace;">🏷️ Asset #[${escapeHtml(asset.id)}]</div>
+          </div>
+          <div style="text-align: right;">
+            <span class="badge ${asset.status === 'In Stock' ? 'badge-success' : 'badge-primary'}" style="font-size: 12px; padding: 4px 10px;">${escapeHtml(asset.status)}</span>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Condition: <strong>${escapeHtml(asset.condition || 'Good')}</strong></div>
+          </div>
+        </div>
+
+        <!-- Details Grid -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; font-size: 12px;">
+          <div>
+            <span style="color: var(--text-muted);">💻 Laptop Model:</span>
+            <div style="font-weight: 700; color: var(--text-main); font-size: 13px;">${escapeHtml(asset.model)}</div>
+          </div>
+          <div>
+            <span style="color: var(--text-muted);">⚙️ Hardware Specs:</span>
+            <div style="font-weight: 600; color: var(--text-main);">${escapeHtml(asset.specs || 'N/A')}</div>
+          </div>
+          <div>
+            <span style="color: var(--text-muted);">🔢 Serial Number (S/N):</span>
+            <div style="font-family: monospace; font-weight: 600; color: ${asset.serial ? 'var(--text-main)' : 'var(--warning)'};">${asset.serial ? escapeHtml(asset.serial) : '⚠️ Not Entered'}</div>
+          </div>
+          <div>
+            <span style="color: var(--text-muted);">📍 Current Location:</span>
+            <div style="font-weight: 700; color: var(--text-main);">🏢 ${escapeHtml(currentBranch.name)}</div>
+          </div>
+          <div>
+            <span style="color: var(--text-muted);">👤 Current User:</span>
+            <div style="font-weight: 600; color: var(--text-main);">${asset.assignedTo ? '👤 ' + escapeHtml(asset.assignedTo) : '<em style="color: var(--success);">🟢 Available in Store</em>'}</div>
+          </div>
+          <div style="background: rgba(37, 99, 235, 0.08); padding: 4px 8px; border-radius: 4px; border-left: 3px solid var(--primary);">
+            <span style="color: var(--primary); font-weight: 700;">⏪ Previous User:</span>
+            <div style="font-weight: 800; color: var(--text-main); font-size: 13px;">${asset.previousUser ? '👤 ' + escapeHtml(asset.previousUser) : '<span style="color: var(--text-muted); font-weight: normal;">(None recorded)</span>'}</div>
+          </div>
+        </div>
+
+        ${asset.notes ? `
+          <div style="margin-top: 8px; font-size: 11px; color: var(--text-muted); border-top: 1px dashed var(--border); padding-top: 6px;">
+            📝 <strong>Remarks:</strong> ${escapeHtml(asset.notes)}
+          </div>
+        ` : ''}
       </div>
     `;
   }
 
-  // Populate form fields with current values (or empty for new user entry)
-  document.getElementById('handoverRecipientName').value = asset.assignedTo || '';
-  document.getElementById('handoverDepartment').value = asset.assignedDept || '';
-  if (asset.branchId) {
+  // Populate destination office with current branch by default if not set
+  if (asset.branchId && !document.getElementById('handoverBranchSelect').value) {
     document.getElementById('handoverBranchSelect').value = asset.branchId;
   }
-  document.getElementById('handoverCondition').value = asset.condition || 'Good Condition (Tested Working)';
   if (!document.getElementById('handoverDate').value) {
     document.getElementById('handoverDate').value = new Date().toISOString().split('T')[0];
   }
 
-  generateHandoverPreview();
+  updateTransferPreview();
+}
+
+function updateTransferPreview() {
+  const assetId = document.getElementById('handoverAssetSelect')?.value;
+  const assets = getAssets();
+  const branches = getBranches();
+  const asset = assets.find(a => a.id === assetId);
+
+  const container = document.getElementById('transferVisualRouteContainer');
+  if (!container) return;
+
+  if (!asset) {
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--text-muted); padding: 30px; font-size: 13px;">
+        👈 Select a laptop on the left to see the live transfer route and summary.
+      </div>
+    `;
+    return;
+  }
+
+  const currentBranch = branches.find(b => b.id === asset.branchId) || { name: 'HQ / Main Store' };
+  const targetBranchId = document.getElementById('handoverBranchSelect')?.value;
+  const targetBranch = branches.find(b => b.id === targetBranchId) || { name: 'Destination Office' };
+  const newRecipient = document.getElementById('handoverRecipientName')?.value?.trim() || '(Enter Employee Name)';
+  const dept = document.getElementById('handoverDepartment')?.value?.trim();
+  const transferDate = document.getElementById('handoverDate')?.value || new Date().toISOString().split('T')[0];
+
+  container.innerHTML = `
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <!-- Route Flow Box -->
+      <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+        <!-- Origin -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px;">
+          <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 2px;">FROM (Current)</div>
+          <div style="font-weight: 700; color: var(--text-main); font-size: 14px;">🏢 ${escapeHtml(currentBranch.name)}</div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+            ${asset.assignedTo ? '👤 ' + escapeHtml(asset.assignedTo) : '<span style="color: var(--success); font-weight: 600;">🟢 In IT Store</span>'}
+          </div>
+          ${asset.previousUser ? `<div style="font-size: 11px; color: var(--primary); margin-top: 2px;">Prev User: <strong>${escapeHtml(asset.previousUser)}</strong></div>` : ''}
+        </div>
+
+        <!-- Arrow -->
+        <div style="text-align: center;">
+          <div style="font-size: 24px; color: var(--primary);">➔</div>
+          <div style="font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">TRANSFER</div>
+        </div>
+
+        <!-- Destination -->
+        <div style="background: var(--bg-card); border: 1px solid var(--primary); border-radius: var(--radius-sm); padding: 12px;">
+          <div style="font-size: 11px; color: var(--primary); text-transform: uppercase; font-weight: 700; margin-bottom: 2px;">TO (Destination)</div>
+          <div style="font-weight: 700; color: var(--text-main); font-size: 14px;">🏢 ${escapeHtml(targetBranch.name)}</div>
+          <div style="font-size: 12px; font-weight: 700; color: var(--primary); margin-top: 4px;">
+            👤 ${escapeHtml(newRecipient)}
+          </div>
+          ${dept ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Dept: ${escapeHtml(dept)}</div>` : ''}
+        </div>
+      </div>
+
+      <!-- Quick Summary Strip -->
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; background: rgba(37, 99, 235, 0.06); padding: 8px 12px; border-radius: 4px; border: 1px dashed var(--border);">
+        <span>💻 Laptop: <strong>[${escapeHtml(asset.id)}] ${escapeHtml(asset.model)}</strong></span>
+        <span>📅 Transfer Date: <strong>${escapeHtml(transferDate)}</strong></span>
+        <span style="color: var(--success); font-weight: 700;">⚡ Inventory Auto-Update: Yes</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderTransferHistory() {
+  const transfers = getTransfers();
+  const tableBody = document.getElementById('transferHistoryTableBody');
+  const badge = document.getElementById('transferHistoryCountBadge');
+  if (badge) badge.textContent = `${transfers.length} Transfers`;
+  if (!tableBody) return;
+
+  if (transfers.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="5" style="text-align: center; padding: 30px; color: var(--text-muted);">
+          No transfers recorded yet. When you transfer laptops between offices or users, records appear here automatically!
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tableBody.innerHTML = '';
+  // Show most recent first
+  transfers.slice(0, 30).forEach(t => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="asset-tag-badge" style="font-weight: 800; color: var(--primary);">#${escapeHtml(t.assetId)}</span></td>
+      <td>
+        <strong>${escapeHtml(t.model)}</strong>
+        ${t.specs ? `<div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(t.specs)}</div>` : ''}
+      </td>
+      <td>
+        <div style="font-weight: 600;">${escapeHtml(t.fromBranch)}</div>
+        <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(t.fromUser || 'In Stock')}</div>
+      </td>
+      <td>
+        <div style="font-weight: 700; color: var(--primary);">${escapeHtml(t.toBranch)}</div>
+        <div style="font-size: 11px; color: var(--text-main); font-weight: 600;">👤 ${escapeHtml(t.toUser)}</div>
+      </td>
+      <td style="font-size: 11px; color: var(--text-muted);">${escapeHtml(t.date || '-')}</td>
+    `;
+    tableBody.appendChild(tr);
+  });
 }
 
 function executeLaptopTransfer() {
@@ -1176,8 +1364,6 @@ function executeLaptopTransfer() {
 
   const department = (document.getElementById('handoverDepartment')?.value || '').trim();
   const transferDate = document.getElementById('handoverDate')?.value || new Date().toISOString().split('T')[0];
-  const condition = document.getElementById('handoverCondition')?.value || 'Good Condition';
-  const accessories = document.getElementById('handoverAccessories')?.value || '';
 
   const assets = getAssets();
   const branches = getBranches();
@@ -1189,7 +1375,11 @@ function executeLaptopTransfer() {
   }
 
   const targetBranch = branches.find(b => b.id === branchId) || { name: 'Office' };
+  const currentBranch = branches.find(b => b.id === assets[assetIndex].branchId) || { name: 'Office' };
   const asset = assets[assetIndex];
+
+  const oldUser = asset.assignedTo || '';
+  const fromBranchName = currentBranch.name;
 
   // Auto-record previous user!
   // If the laptop already had an assigned user and it's being transferred to someone else,
@@ -1204,21 +1394,38 @@ function executeLaptopTransfer() {
   asset.branchId = branchId;
   asset.status = 'Assigned';
   asset.assignedDate = transferDate;
-  if (condition) asset.condition = condition;
 
   // Persist to database.json on disk!
   saveAssets(assets);
 
-  // Auto-refresh views everywhere! ("ibe ape current list eka update wenawa")
+  // Add transfer history audit record
+  const transfers = getTransfers();
+  transfers.unshift({
+    id: `TR-${Date.now().toString().slice(-6)}`,
+    assetId: asset.id,
+    model: asset.model,
+    specs: asset.specs || '',
+    fromBranch: fromBranchName,
+    fromUser: oldUser,
+    toBranch: targetBranch.name,
+    toUser: newRecipient,
+    department: department,
+    date: transferDate,
+    timestamp: new Date().toISOString()
+  });
+  saveTransfers(transfers);
+
+  // Auto-refresh views everywhere!
   renderAssets();
   renderDashboard();
   renderBranchesList();
   populateHandoverSelectors();
+  renderTransferHistory();
 
-  // Re-select this asset
+  // Re-select this asset and update profile card & route preview
   assetSelect.value = assetId;
   loadHandoverAssetData();
-  generateHandoverPreview();
+  updateTransferPreview();
 
   // Show celebration message & alert box
   showToast(`✅ Successfully transferred Laptop [${asset.id}] to ${targetBranch.name} and assigned to ${newRecipient}!`, 'success');
@@ -1234,117 +1441,29 @@ function executeLaptopTransfer() {
         Laptop <strong>#${asset.id} (${escapeHtml(asset.model)})</strong> is now officially assigned to <strong>${escapeHtml(newRecipient)}</strong> at <strong>${escapeHtml(targetBranch.name)}</strong>. The inventory list has been automatically updated.
       </p>
       <div style="display: flex; gap: 8px;">
-        <button type="button" class="btn btn-sm btn-primary" onclick="printHandoverSlip()">
-          🖨️ Print Handover Slip / PDF
-        </button>
         <button type="button" class="btn btn-sm btn-outline" onclick="switchTab('assets')">
           💻 View in Laptop Inventory
+        </button>
+        <button type="button" class="btn btn-sm btn-primary" onclick="resetTransferForm()">
+          ➕ Transfer Another Laptop
         </button>
       </div>
     `;
   }
 }
 
-function generateHandoverPreview() {
-  const assetId = document.getElementById('handoverAssetSelect').value;
-  const assets = getAssets();
-  const branches = getBranches();
-  const asset = assets.find(a => a.id === assetId);
-
-  const container = document.getElementById('handoverPreviewContainer');
-  if (!asset) {
-    container.innerHTML = `<div style="text-align: center; color: #94a3b8; padding: 40px;">Select a laptop above to generate an official handover slip!</div>`;
-    return;
-  }
-
-  const recipient = document.getElementById('handoverRecipientName').value || '___________________________';
-  const dept = document.getElementById('handoverDepartment').value || 'General / Branch Staff';
-  const branchId = document.getElementById('handoverBranchSelect').value;
-  const branch = branches.find(b => b.id === branchId) || { name: 'Main Office' };
-  const handoverDate = document.getElementById('handoverDate').value || new Date().toISOString().split('T')[0];
-  const condition = document.getElementById('handoverCondition').value;
-  const accessories = document.getElementById('handoverAccessories').value || 'Power Adapter & Power Cord, Laptop Carrying Bag';
-
-  container.innerHTML = `
-    <div id="printSection" style="background: #ffffff; padding: 24px; border: 2px solid #0f172a; border-radius: 8px; font-family: Arial, sans-serif; color: #000000; max-width: 750px; margin: 0 auto;">
-      <!-- Header -->
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 16px;">
-        <div>
-          <h2 style="margin: 0; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">OFFICIAL IT ASSET HANDOVER & GATE PASS</h2>
-          <p style="margin: 2px 0 0 0; font-size: 12px; color: #333;">IT Department • Hardware Inventory & Branch Management System</p>
-        </div>
-        <div style="text-align: right;">
-          <div style="font-weight: bold; font-size: 13px;">Ref: SLIP-${asset.id}</div>
-          <div style="font-size: 11px; color: #444;">Date: ${handoverDate}</div>
-        </div>
-      </div>
-
-      <!-- Recipient & Office Info -->
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 12px;">
-        <tr style="background: #f1f5f9;">
-          <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold; width: 25%;">Recipient Name:</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; width: 25%; font-weight: bold; color: #1e293b;">${escapeHtml(recipient)}</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold; width: 25%;">Department:</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; width: 25%;">${escapeHtml(dept)}</td>
-        </tr>
-        <tr>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold;">Branch / Location:</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1;">${escapeHtml(branch.name)}</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold;">Issue Date:</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1;">${handoverDate}</td>
-        </tr>
-      </table>
-
-      <!-- Asset Specifications -->
-      <h4 style="margin: 0 0 6px 0; font-size: 13px; text-transform: uppercase;">Equipment / Laptop Details</h4>
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 12px;">
-        <tr style="background: #f8fafc;">
-          <th style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: left;">Asset Tag</th>
-          <th style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: left;">Model Description</th>
-          <th style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: left;">Serial Number (S/N)</th>
-          <th style="padding: 6px 8px; border: 1px solid #cbd5e1; text-align: left;">Condition</th>
-        </tr>
-        <tr>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold;">${asset.id}</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1;">
-            <strong>${escapeHtml(asset.model)}</strong>
-            <div style="font-size: 11px; color: #475569;">${escapeHtml(asset.specs || '')}</div>
-          </td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1; font-family: monospace; font-weight: bold;">${escapeHtml(asset.serial)}</td>
-          <td style="padding: 8px; border: 1px solid #cbd5e1;">${escapeHtml(condition)}</td>
-        </tr>
-      </table>
-
-      <!-- Accessories Included -->
-      <div style="font-size: 12px; margin-bottom: 16px;">
-        <strong>Included Accessories:</strong> ${escapeHtml(accessories)}
-      </div>
-
-      <!-- Undertaking / Agreement -->
-      <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 4px; font-size: 11px; color: #334155; line-height: 1.4; margin-bottom: 24px;">
-        <strong>Acknowledgment & Responsibility:</strong>
-        <p style="margin: 4px 0 0 0;">
-          I acknowledge receipt of the IT equipment listed above in satisfactory working condition. I agree to use this device strictly for authorized company duties, adhere to information security guidelines, report any hardware damage/theft immediately to the IT Administrator, and return this equipment upon request or termination of employment.
-        </p>
-      </div>
-
-      <!-- Dual Signature Lines -->
-      <div style="display: flex; justify-content: space-between; margin-top: 40px; font-size: 12px;">
-        <div style="width: 42%; text-align: center; border-top: 1px solid #000; padding-top: 6px;">
-          <strong>IT Administrator / Issuer</strong>
-          <p style="margin: 2px 0 0 0; font-size: 11px; color: #64748b;">Signature & Date</p>
-        </div>
-        <div style="width: 42%; text-align: center; border-top: 1px solid #000; padding-top: 6px;">
-          <strong>Employee / Recipient</strong>
-          <p style="margin: 2px 0 0 0; font-size: 11px; color: #64748b;">Signature & Date</p>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function printHandoverSlip() {
-  window.print();
+function resetTransferForm() {
+  document.getElementById('transferForm')?.reset();
+  const select = document.getElementById('handoverAssetSelect');
+  if (select) select.value = '';
+  const search = document.getElementById('transferSearchLaptop');
+  if (search) search.value = '';
+  populateHandoverSelectors();
+  const activeCard = document.getElementById('transferActiveAssetCard');
+  if (activeCard) activeCard.style.display = 'none';
+  const alertBox = document.getElementById('transferSuccessAlert');
+  if (alertBox) alertBox.style.display = 'none';
+  updateTransferPreview();
 }
 
 // --- CSV / Excel Export & Backup ---

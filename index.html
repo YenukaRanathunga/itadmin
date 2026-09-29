@@ -292,90 +292,82 @@
     <section id="handover" class="tab-pane">
       <div class="toolbar no-print">
         <div>
-          <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main);">🔄 Laptop Transfer & Branch Handover Hub</h3>
+          <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main);">🔄 Quick Laptop Transfer & User Handover Hub</h3>
           <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
-            Transfer laptops between branches, assign users, and automatically update your live inventory!
+            Transfer laptops directly between branches, assign users, and track movement history without gate passes or paperwork.
           </p>
         </div>
         <div class="toolbar-group">
           <button class="btn btn-outline" onclick="switchTab('assets')">
             💻 View All Laptops
           </button>
-          <button class="btn btn-success" onclick="printHandoverSlip()">
-            🖨️ Print Handover Slip / PDF
+          <button class="btn btn-primary" onclick="resetTransferForm()">
+            ➕ New Transfer
           </button>
         </div>
       </div>
 
-      <div class="transfer-layout no-print" style="display: grid; grid-template-columns: 460px 1fr; gap: 20px; align-items: start; margin-bottom: 24px;">
+      <div class="transfer-layout no-print" style="display: grid; grid-template-columns: 500px 1fr; gap: 20px; align-items: start; margin-bottom: 24px;">
         <!-- Left Column: Quick Transfer Form -->
         <div class="settings-card" style="padding: 20px;">
           <div style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
-            <h3 style="font-size: 16px; font-weight: 800; color: var(--text-main); margin-bottom: 4px;">⚡ Quick Laptop Transfer</h3>
-            <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Select laptop, pick destination office & user, and submit to update inventory automatically.</p>
+            <h3 style="font-size: 16px; font-weight: 800; color: var(--text-main); margin-bottom: 4px;">⚡ Transfer Laptop & Assign User</h3>
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Select a laptop to inspect its full specs and previous user, then assign to the destination office & employee.</p>
           </div>
 
           <form id="transferForm" onsubmit="event.preventDefault(); executeLaptopTransfer();">
-            <!-- 1. Laptop Selection -->
-            <div class="form-group" style="margin-bottom: 14px;">
-              <label style="font-weight: 700; font-size: 13px;">1. Select Laptop to Transfer *</label>
-              <select id="handoverAssetSelect" onchange="loadHandoverAssetData()" style="padding: 10px; font-size: 13px; font-weight: 600;" required>
+            <!-- 1. Laptop Selection with Search & Full Details -->
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label style="font-weight: 700; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <span>1. Select Laptop to Transfer *</span>
+                <span style="font-weight: normal; font-size: 11px; color: var(--text-muted);">Available Active Hardware</span>
+              </label>
+
+              <!-- Live Quick Filter Input -->
+              <div class="search-box" style="margin-bottom: 8px;">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="transferSearchLaptop" placeholder="Filter by Asset No (e.g. 178), Model, S/N, User..." oninput="filterTransferLaptopOptions(this.value)">
+              </div>
+
+              <!-- High-Visibility Select Dropdown -->
+              <select id="handoverAssetSelect" onchange="loadHandoverAssetData()" style="padding: 11px; font-size: 13px; font-weight: 600; width: 100%; border-radius: var(--radius-sm);" required>
                 <!-- Populated dynamically -->
               </select>
             </div>
 
-            <!-- Active Laptop Info Pill -->
-            <div id="transferActiveAssetCard" style="display: none; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 14px; font-size: 12px;">
+            <!-- Prominent High-Visibility Selected Laptop Detailed Profile Card -->
+            <div id="transferActiveAssetCard" style="display: none; margin-bottom: 16px;">
               <!-- Populated via loadHandoverAssetData -->
             </div>
 
             <!-- 2. Destination Office -->
             <div class="form-group" style="margin-bottom: 14px;">
               <label style="font-weight: 700; font-size: 13px;">2. Destination Office / Branch *</label>
-              <select id="handoverBranchSelect" onchange="generateHandoverPreview()" style="padding: 10px; font-size: 13px;" required>
-                <!-- Populated dynamically -->
+              <select id="handoverBranchSelect" onchange="updateTransferPreview()" style="padding: 10px; font-size: 13px;" required>
+                <!-- Populated dynamically with all branches -->
               </select>
             </div>
 
             <!-- 3. New User / Employee -->
             <div class="form-group" style="margin-bottom: 14px;">
-              <label style="font-weight: 700; font-size: 13px;">3. Assign To (User / Employee Name) *</label>
-              <input type="text" id="handoverRecipientName" placeholder="e.g. Kasun Perera / Nuwan Silva" oninput="generateHandoverPreview()" style="padding: 10px; font-size: 13px;" required>
+              <label style="font-weight: 700; font-size: 13px;">3. Assign To (New Employee Name) *</label>
+              <input type="text" id="handoverRecipientName" placeholder="e.g. Kasun Perera / Nuwan Silva" oninput="updateTransferPreview()" style="padding: 10px; font-size: 13px;" required>
             </div>
 
             <!-- 4. Department & Date -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
               <div class="form-group">
                 <label style="font-weight: 600; font-size: 12px;">Department / Role</label>
-                <input type="text" id="handoverDepartment" placeholder="e.g. Sales, Operations" oninput="generateHandoverPreview()">
+                <input type="text" id="handoverDepartment" placeholder="e.g. Sales, Operations" oninput="updateTransferPreview()">
               </div>
               <div class="form-group">
                 <label style="font-weight: 600; font-size: 12px;">Transfer Date</label>
-                <input type="date" id="handoverDate" onchange="generateHandoverPreview()">
+                <input type="date" id="handoverDate" onchange="updateTransferPreview()">
               </div>
             </div>
 
-            <!-- Optional Details Accordion -->
-            <details style="background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 16px; font-size: 12px;">
-              <summary style="cursor: pointer; font-weight: 600; color: var(--text-muted);">⚙️ Optional Equipment Details (Condition & Accessories)</summary>
-              <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px;">
-                <div class="form-group">
-                  <label>Hardware Condition</label>
-                  <select id="handoverCondition" onchange="generateHandoverPreview()">
-                    <option value="Brand New">Brand New</option>
-                    <option value="Good Condition (Tested Working)" selected>Good Condition (Tested Working)</option>
-                    <option value="Fair / Refurbished">Fair / Refurbished</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>Issued Accessories</label>
-                  <input type="text" id="handoverAccessories" value="Original Power Adapter, Laptop Bag, Wireless Mouse" oninput="generateHandoverPreview()">
-                </div>
-              </div>
-            </details>
-
             <!-- Big Action Button -->
-            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px; font-size: 14px; font-weight: 700; border-radius: var(--radius-sm);">
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 13px; font-size: 15px; font-weight: 700; border-radius: var(--radius-sm); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);">
               🚀 Confirm Transfer & Update Inventory
             </button>
 
@@ -385,21 +377,51 @@
           </form>
         </div>
 
-        <!-- Right Column: Live Printable Slip & Security Gate Pass -->
-        <div style="display: flex; flex-direction: column; gap: 14px;">
-          <div class="settings-card" style="padding: 14px 20px; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <h4 style="font-size: 14px; font-weight: 700; color: var(--text-main); margin: 0;">📄 Official Handover Slip & Gate Pass Preview</h4>
-              <p style="font-size: 11px; color: var(--text-muted); margin: 2px 0 0 0;">Official documentation for signatures and security gate passes.</p>
+        <!-- Right Column: Live Route Summary & Recent Transfers Audit Log -->
+        <div style="display: flex; flex-direction: column; gap: 18px;">
+          <!-- 1. Live Visual Transfer Route Card -->
+          <div class="settings-card" style="padding: 18px 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+              <div>
+                <h4 style="font-size: 14px; font-weight: 700; color: var(--text-main); margin: 0;">🔄 Live Transfer Route Preview</h4>
+                <p style="font-size: 11px; color: var(--text-muted); margin: 2px 0 0 0;">Immediate visual confirmation before applying transfer to live inventory.</p>
+              </div>
+              <span id="transferLiveStatusBadge" class="badge badge-primary">Direct Assignment</span>
             </div>
-            <button type="button" class="btn btn-success btn-sm" onclick="printHandoverSlip()">
-              🖨️ Print Slip / PDF
-            </button>
+
+            <!-- Visual Route Diagram -->
+            <div id="transferVisualRouteContainer">
+              <!-- Rendered via JS -->
+            </div>
           </div>
 
-          <!-- Live Printable Preview Container -->
-          <div id="handoverPreviewContainer">
-            <!-- Rendered via JS -->
+          <!-- 2. Recent Transfer History & Audit Log -->
+          <div class="settings-card" style="padding: 18px 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div>
+                <h4 style="font-size: 14px; font-weight: 700; color: var(--text-main); margin: 0;">📜 Recent Laptop Transfers & Audit Trail</h4>
+                <p style="font-size: 11px; color: var(--text-muted); margin: 2px 0 0 0;">All completed hardware handovers and branch reassignments.</p>
+              </div>
+              <span id="transferHistoryCountBadge" class="badge badge-neutral">0 Transfers</span>
+            </div>
+
+            <!-- Transfer History Table -->
+            <div style="overflow-x: auto; max-height: 420px;">
+              <table class="data-table" style="font-size: 12px;">
+                <thead>
+                  <tr>
+                    <th style="width: 85px;">Asset No</th>
+                    <th>Laptop & Specs</th>
+                    <th>From (Origin)</th>
+                    <th>To (New Assignment)</th>
+                    <th style="width: 95px;">Date</th>
+                  </tr>
+                </thead>
+                <tbody id="transferHistoryTableBody">
+                  <!-- Rendered via JS -->
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
