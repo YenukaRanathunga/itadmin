@@ -798,10 +798,46 @@ function renderBranchesList() {
   });
 }
 
+const SRI_LANKA_CITY_COORDINATES = {
+  'Kandy': { lat: 7.2906, lng: 80.6337, code: 'BR-KDY' },
+  'Badulla': { lat: 6.9895, lng: 81.0557, code: 'BR-BDL' },
+  'Matara': { lat: 5.9496, lng: 80.5469, code: 'BR-MTR' },
+  'Mannar': { lat: 8.9810, lng: 79.9044, code: 'BR-MNR' },
+  'Batticaloa': { lat: 7.7170, lng: 81.7000, code: 'BR-BTC' },
+  'Kilinochchi': { lat: 9.3803, lng: 80.3770, code: 'BR-KLN' },
+  'Monaragala': { lat: 6.8728, lng: 81.3507, code: 'BR-MNG' },
+  'Colombo': { lat: 6.9271, lng: 79.8612, code: 'HQ-CMB' },
+  'Galle': { lat: 6.0535, lng: 80.2210, code: 'BR-GAL' },
+  'Kurunegala': { lat: 7.4863, lng: 80.3623, code: 'BR-KRN' },
+  'Jaffna': { lat: 9.6615, lng: 80.0255, code: 'BR-JFN' },
+  'Anuradhapura': { lat: 8.3114, lng: 80.4037, code: 'BR-ANP' },
+  'Ratnapura': { lat: 6.6828, lng: 80.4034, code: 'BR-RTP' },
+  'Trincomalee': { lat: 8.5874, lng: 81.2152, code: 'BR-TRN' }
+};
+
+function applyQuickCityPreset(cityName) {
+  if (!cityName || !SRI_LANKA_CITY_COORDINATES[cityName]) return;
+  const data = SRI_LANKA_CITY_COORDINATES[cityName];
+  
+  const cityInput = document.getElementById('branchCity');
+  const latInput = document.getElementById('branchLat');
+  const lngInput = document.getElementById('branchLng');
+  const nameInput = document.getElementById('branchName');
+  const codeInput = document.getElementById('branchCode');
+
+  if (cityInput) cityInput.value = cityName;
+  if (latInput) latInput.value = data.lat;
+  if (lngInput) lngInput.value = data.lng;
+  if (nameInput && !nameInput.value) nameInput.value = `${cityName} Branch`;
+  if (codeInput && !codeInput.value) codeInput.value = data.code;
+  showToast(`Auto-filled GPS for ${cityName}: ${data.lat}, ${data.lng}`, 'info');
+}
+
 function openAddBranchModal() {
   document.getElementById('branchModalTitle').textContent = '🏢 Add New Branch Office';
   document.getElementById('branchForm').reset();
   document.getElementById('branchEditId').value = '';
+  if (document.getElementById('quickCityPreset')) document.getElementById('quickCityPreset').value = '';
   openModal('branchModal');
 }
 
@@ -822,6 +858,9 @@ function openEditBranchModal(branchId) {
   document.getElementById('branchPhone').value = branch.phone || '';
   document.getElementById('branchType').value = branch.type || 'Branch Office';
   document.getElementById('branchNotes').value = branch.notes || '';
+  if (document.getElementById('quickCityPreset')) {
+    document.getElementById('quickCityPreset').value = branch.city || '';
+  }
 
   openModal('branchModal');
 }

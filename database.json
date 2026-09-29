@@ -1,30 +1,108 @@
-﻿{
+{
   "branches": [
     {
       "id": "BR-01",
-      "name": "HEAD OFFICE",
-      "code": "",
+      "name": "HEAD OFFICE (COLOMBO)",
+      "code": "HQ-CMB",
       "city": "COLOMBO",
-      "address": "",
+      "address": "Colombo Head Office",
       "lat": 6.9271,
       "lng": 79.8612,
-      "contactPerson": "",
-      "phone": "",
+      "contactPerson": "IT Administrator",
+      "phone": "+94 11 234 5678",
       "type": "Headquarters",
-      "notes": ""
+      "notes": "Main IT Operations Hub & Central Laptop Store"
     },
     {
       "id": "BR-02",
-      "name": "Badulla",
-      "code": "",
+      "name": "Badulla Branch",
+      "code": "BR-BDL",
       "city": "Badulla",
-      "address": "",
-      "lat": 6.9271,
-      "lng": 79.8612,
-      "contactPerson": "",
-      "phone": "",
+      "address": "Badulla Regional Office",
+      "lat": 6.9895,
+      "lng": 81.0557,
+      "contactPerson": "Branch Manager",
+      "phone": "+94 55 222 3456",
       "type": "Branch Office",
-      "notes": ""
+      "notes": "Uva Province Office"
+    },
+    {
+      "id": "BR-03",
+      "name": "Kandy Branch",
+      "code": "BR-KDY",
+      "city": "Kandy",
+      "address": "Kandy Regional Office",
+      "lat": 7.2906,
+      "lng": 80.6337,
+      "contactPerson": "Branch Manager",
+      "phone": "+94 81 223 4567",
+      "type": "Branch Office",
+      "notes": "Central Province Office"
+    },
+    {
+      "id": "BR-04",
+      "name": "Matara Branch",
+      "code": "BR-MTR",
+      "city": "Matara",
+      "address": "Matara Regional Office",
+      "lat": 5.9496,
+      "lng": 80.5469,
+      "contactPerson": "Branch Manager",
+      "phone": "+94 41 222 3456",
+      "type": "Branch Office",
+      "notes": "Southern Province Office"
+    },
+    {
+      "id": "BR-05",
+      "name": "Mannar Branch",
+      "code": "BR-MNR",
+      "city": "Mannar",
+      "address": "Mannar Regional Office",
+      "lat": 8.9810,
+      "lng": 79.9044,
+      "contactPerson": "Branch Manager",
+      "phone": "+94 23 222 3456",
+      "type": "Branch Office",
+      "notes": "Northern Province (Mannar)"
+    },
+    {
+      "id": "BR-06",
+      "name": "Batticaloa Branch",
+      "code": "BR-BTC",
+      "city": "Batticaloa",
+      "address": "Batticaloa Regional Office",
+      "lat": 7.7170,
+      "lng": 81.7000,
+      "contactPerson": "Branch Manager",
+      "phone": "+94 65 222 3456",
+      "type": "Branch Office",
+      "notes": "Eastern Province (Batticaloa)"
+    },
+    {
+      "id": "BR-07",
+      "name": "Kilinochchi Branch",
+      "code": "BR-KLN",
+      "city": "Kilinochchi",
+      "address": "Kilinochchi Regional Office",
+      "lat": 9.3803,
+      "lng": 80.3770,
+      "contactPerson": "Branch Manager",
+      "phone": "+94 21 228 3456",
+      "type": "Branch Office",
+      "notes": "Northern Province (Kilinochchi)"
+    },
+    {
+      "id": "BR-08",
+      "name": "Monaragala Branch",
+      "code": "BR-MNG",
+      "city": "Monaragala",
+      "address": "Monaragala Regional Office",
+      "lat": 6.8728,
+      "lng": 81.3507,
+      "contactPerson": "Branch Manager",
+      "phone": "+94 55 227 6543",
+      "type": "Branch Office",
+      "notes": "Uva Province (Monaragala)"
     }
   ],
   "assets": [
