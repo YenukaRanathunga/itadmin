@@ -470,70 +470,75 @@ function toggleAssignedFields() {
 
 function handleSaveAsset(event) {
   event.preventDefault();
-  const assets = getAssets();
-  const editId = document.getElementById('assetEditId').value;
-  const customId = document.getElementById('assetCustomId').value.trim();
-  const assetId = customId || editId || `AST-${Date.now().toString().slice(-4)}`;
+  try {
+    const assets = getAssets();
+    const editId = document.getElementById('assetEditId')?.value || '';
+    const customId = document.getElementById('assetCustomId')?.value?.trim() || '';
+    const assetId = customId || editId || `AST-${Date.now().toString().slice(-4)}`;
 
-  const newAssetData = {
-    id: assetId,
-    model: document.getElementById('assetModel').value.trim(),
-    serial: document.getElementById('assetSerial').value.trim(),
-    category: "Laptop",
-    specs: document.getElementById('assetSpecs').value.trim(),
-    branchId: document.getElementById('assetBranch').value,
-    status: document.getElementById('assetStatus').value,
-    condition: document.getElementById('assetCondition').value,
-    assignedTo: document.getElementById('assetAssignedTo').value.trim(),
-    assignedDept: document.getElementById('assetAssignedDept').value.trim(),
-    assignedDate: document.getElementById('assetAssignedDate').value,
-    purchaseDate: document.getElementById('assetPurchaseDate').value,
-    warrantyExpiry: document.getElementById('assetWarrantyDate').value,
-    notes: document.getElementById('assetNotes').value.trim()
-  };
+    const newAssetData = {
+      id: assetId,
+      model: document.getElementById('assetModel')?.value?.trim() || '',
+      serial: document.getElementById('assetSerial')?.value?.trim() || '',
+      category: "Laptop",
+      specs: document.getElementById('assetSpecs')?.value?.trim() || '',
+      branchId: document.getElementById('assetBranch')?.value || '',
+      status: document.getElementById('assetStatus')?.value || 'In Stock',
+      condition: document.getElementById('assetCondition')?.value || 'Good',
+      assignedTo: document.getElementById('assetAssignedTo')?.value?.trim() || '',
+      assignedDept: document.getElementById('assetAssignedDept')?.value?.trim() || '',
+      assignedDate: document.getElementById('assetAssignedDate')?.value || '',
+      purchaseDate: document.getElementById('assetPurchaseDate')?.value || '',
+      warrantyExpiry: document.getElementById('assetWarrantyDate')?.value || '',
+      notes: document.getElementById('assetNotes')?.value?.trim() || ''
+    };
 
-  if (!newAssetData.model) {
-    showToast('Please enter Laptop Model & Brand (e.g. HP / Dell)!', 'warning');
-    return;
-  }
-
-  if (editId) {
-    const index = assets.findIndex(a => a.id === editId);
-    if (index !== -1) {
-      // Check duplicate ID if ID changed
-      if (assetId !== editId && assets.some(a => a.id.toLowerCase() === assetId.toLowerCase())) {
-        showToast(`An asset with Tag / ID "${assetId}" already exists!`, 'warning');
-        return;
-      }
-      // Check duplicate serial only if user entered a serial
-      if (newAssetData.serial && assets.some(a => a.id !== editId && a.serial && a.serial.toLowerCase() === newAssetData.serial.toLowerCase())) {
-        showToast(`Another laptop with Serial Number "${newAssetData.serial}" already exists!`, 'warning');
-        return;
-      }
-      assets[index] = newAssetData;
-      showToast(`Laptop ${assetId} updated successfully!`, 'success');
-    }
-  } else {
-    // Check duplicate ID
-    if (assets.some(a => a.id.toLowerCase() === newAssetData.id.toLowerCase())) {
-      showToast(`An asset with Tag / ID "${newAssetData.id}" already exists!`, 'warning');
+    if (!newAssetData.model) {
+      showToast('Please enter Laptop Model & Brand (e.g. HP / Dell)!', 'warning');
       return;
     }
-    // Check duplicate serial only if serial is entered
-    if (newAssetData.serial && assets.some(a => a.serial && a.serial.toLowerCase() === newAssetData.serial.toLowerCase())) {
-      showToast(`A laptop with Serial Number "${newAssetData.serial}" already exists!`, 'warning');
-      return;
-    }
-    assets.unshift(newAssetData);
-    showToast(`Laptop ${newAssetData.model} (${newAssetData.id}) saved!`, 'success');
-  }
 
-  saveAssets(assets);
-  closeModal('assetModal');
-  renderAssets();
-  renderDashboard();
-  renderBranchesList();
-  if (mapInstance) renderMapMarkers();
+    if (editId) {
+      const index = assets.findIndex(a => a.id === editId);
+      if (index !== -1) {
+        // Check duplicate ID if ID changed
+        if (assetId !== editId && assets.some(a => a.id.toLowerCase() === assetId.toLowerCase())) {
+          showToast(`An asset with Tag / ID "${assetId}" already exists!`, 'warning');
+          return;
+        }
+        // Check duplicate serial only if user entered a serial
+        if (newAssetData.serial && assets.some(a => a.id !== editId && a.serial && a.serial.toLowerCase() === newAssetData.serial.toLowerCase())) {
+          showToast(`Another laptop with Serial Number "${newAssetData.serial}" already exists!`, 'warning');
+          return;
+        }
+        assets[index] = newAssetData;
+        showToast(`Laptop ${assetId} updated successfully!`, 'success');
+      }
+    } else {
+      // Check duplicate ID
+      if (assets.some(a => a.id.toLowerCase() === newAssetData.id.toLowerCase())) {
+        showToast(`An asset with Tag / ID "${newAssetData.id}" already exists!`, 'warning');
+        return;
+      }
+      // Check duplicate serial only if serial is entered
+      if (newAssetData.serial && assets.some(a => a.serial && a.serial.toLowerCase() === newAssetData.serial.toLowerCase())) {
+        showToast(`A laptop with Serial Number "${newAssetData.serial}" already exists!`, 'warning');
+        return;
+      }
+      assets.unshift(newAssetData);
+      showToast(`Laptop ${newAssetData.model} (${newAssetData.id}) saved!`, 'success');
+    }
+
+    saveAssets(assets);
+    closeModal('assetModal');
+    renderAssets();
+    renderDashboard();
+    renderBranchesList();
+    if (mapInstance) renderMapMarkers();
+  } catch (err) {
+    console.error('Error saving asset:', err);
+    showToast('Error saving asset: ' + err.message, 'danger');
+  }
 }
 
 function deleteAsset(assetId) {
