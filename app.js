@@ -9,10 +9,18 @@ const STORAGE_KEYS = {
 
 let isServerConnected = false;
 
+function getApiEndpoint(endpoint) {
+  if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+    return endpoint;
+  }
+  return `http://localhost:5000${endpoint}`;
+}
+
 // Sync with local backend server (database.json)
-async function syncWithServer() {
+async function syncWithServer(isRetry = false) {
   try {
-    const res = await fetch('/api/data');
+    const url = getApiEndpoint('/api/data');
+    const res = await fetch(url, { cache: 'no-store' });
     if (res.ok) {
       const data = await res.json();
       if (data.assets && data.branches && data.visits) {
@@ -21,11 +29,17 @@ async function syncWithServer() {
         localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(data.visits));
         isServerConnected = true;
         updateServerStatusBadge(true);
+        if (isRetry) {
+          renderDashboard();
+          renderAssets();
+          renderBranchesList();
+          renderVisits();
+        }
         return true;
       }
     }
   } catch (e) {
-    // Server not running or file:/// protocol
+    // Server not running or unreachable
     isServerConnected = false;
   }
   updateServerStatusBadge(false);
@@ -34,20 +48,26 @@ async function syncWithServer() {
 
 // Persist data directly to disk (database.json) via backend API
 async function persistToServer() {
-  if (!isServerConnected) return;
   try {
     const payload = {
       branches: getBranches(),
       assets: getAssets(),
       visits: getVisits()
     };
-    await fetch('/api/save', {
+    const url = getApiEndpoint('/api/save');
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload, null, 2)
     });
+    if (res.ok) {
+      isServerConnected = true;
+      updateServerStatusBadge(true);
+    }
   } catch (err) {
     console.warn('Could not persist to server:', err);
+    isServerConnected = false;
+    updateServerStatusBadge(false);
   }
 }
 
@@ -56,12 +76,18 @@ function updateServerStatusBadge(connected) {
   if (!badge) return;
   if (connected) {
     badge.className = 'badge badge-success';
-    badge.innerHTML = '🟢 Server: database.json (Active)';
+    badge.innerHTML = '🟢 Server: database.json (Saved & Synced)';
     badge.title = 'Live local server connected! All changes are permanently saved to database.json on your computer.';
+    badge.onclick = null;
+    badge.style.cursor = 'default';
   } else {
-    badge.className = 'badge badge-neutral';
-    badge.innerHTML = '💾 Browser Storage: Active';
-    badge.title = 'Saved in local browser memory.';
+    badge.className = 'badge badge-warning';
+    badge.innerHTML = '⚠️ Local Server Offline (Click to fix)';
+    badge.title = 'Local server is not connected. Click for instructions.';
+    badge.style.cursor = 'pointer';
+    badge.onclick = () => {
+      alert('Local server is not running on http://localhost:5000.\n\nPlease double-click "start.bat" in your it-asset-manager folder to start the server and enable permanent saving to database.json!');
+    };
   }
 }
 
@@ -112,6 +138,13 @@ function saveVisits(visits) {
 document.addEventListener('DOMContentLoaded', async () => {
   // Sync with server if running on http://localhost:5000
   await syncWithServer();
+
+  // Background auto-reconnect polling in case server starts after page load
+  setInterval(() => {
+    if (!isServerConnected) {
+      syncWithServer(true);
+    }
+  }, 4000);
 
   // Ensure default data exists
   getBranches();
