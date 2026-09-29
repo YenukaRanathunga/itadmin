@@ -191,6 +191,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderBranchesList();
   renderVisits();
   populateHandoverSelectors();
+  renderDamagedDisposed();
 
   // Setup tab navigation
   setupTabs();
@@ -224,6 +225,9 @@ function switchTab(tabId) {
   }
   if (tabId === 'dashboard') {
     renderDashboard();
+  }
+  if (tabId === 'damaged-disposed') {
+    renderDamagedDisposed();
   }
 }
 
@@ -1313,6 +1317,377 @@ function clearAllData() {
   saveVisits([]);
   showToast('All records cleared. System is now empty!', 'info');
   setTimeout(() => location.reload(), 400);
+}
+
+// --- Damaged, Repairs & Disposal Management Hub ---
+let currentDamagedFilter = 'all';
+
+function filterDamagedDisposedTab(filterType) {
+  currentDamagedFilter = filterType;
+  
+  const btnAll = document.getElementById('filterBtnAllDamaged');
+  const btnMaint = document.getElementById('filterBtnMaintenance');
+  const btnDecomm = document.getElementById('filterBtnDecommissioned');
+
+  if (btnAll) btnAll.className = 'btn btn-sm btn-outline' + (filterType === 'all' ? ' active-filter-btn' : '');
+  if (btnMaint) btnMaint.className = 'btn btn-sm btn-outline' + (filterType === 'Maintenance' ? ' active-filter-btn' : '');
+  if (btnDecomm) btnDecomm.className = 'btn btn-sm btn-outline' + (filterType === 'Decommissioned' ? ' active-filter-btn' : '');
+
+  renderDamagedDisposed();
+}
+
+function renderDamagedDisposed() {
+  const assets = getAssets();
+  const branches = getBranches();
+  const tableBody = document.getElementById('damagedDisposedTableBody');
+  if (!tableBody) return;
+
+  const searchQuery = (document.getElementById('searchDamagedInput')?.value || '').toLowerCase().trim();
+
+  const faultyAssets = assets.filter(a => a.status === 'Maintenance' || a.status === 'Decommissioned');
+  const damagedList = assets.filter(a => a.status === 'Maintenance');
+  const disposedList = assets.filter(a => a.status === 'Decommissioned');
+
+  // Update counters
+  const elDamaged = document.getElementById('statDamagedCount');
+  const elDisposed = document.getElementById('statDisposedCount');
+  const elTotal = document.getElementById('statTotalFaulty');
+  const countAll = document.getElementById('countAllFaulty');
+  const countMaint = document.getElementById('countMaintenance');
+  const countDecomm = document.getElementById('countDecommissioned');
+
+  if (elDamaged) elDamaged.textContent = damagedList.length;
+  if (elDisposed) elDisposed.textContent = disposedList.length;
+  if (elTotal) elTotal.textContent = faultyAssets.length;
+  if (countAll) countAll.textContent = faultyAssets.length;
+  if (countMaint) countMaint.textContent = damagedList.length;
+  if (countDecomm) countDecomm.textContent = disposedList.length;
+
+  tableBody.innerHTML = '';
+
+  const filtered = faultyAssets.filter(a => {
+    if (currentDamagedFilter !== 'all' && a.status !== currentDamagedFilter) return false;
+    if (searchQuery) {
+      const text = `${a.id} ${a.model} ${a.serial || ''} ${a.damageReason || ''} ${a.damageCategory || ''} ${a.damageVendor || ''} ${a.disposalReason || ''} ${a.disposalMethod || ''} ${a.notes || ''}`.toLowerCase();
+      if (!text.includes(searchQuery)) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align: center; padding: 45px 20px; color: var(--text-muted);">
+          ${faultyAssets.length === 0 ? '✨ No damaged or disposed laptops on record. All your equipment is currently active & healthy!' : '🔍 No records matching your search filter.'}
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  filtered.forEach(asset => {
+    const branch = branches.find(b => b.id === asset.branchId) || { name: 'Main HQ' };
+    const isMaintenance = asset.status === 'Maintenance';
+    const tr = document.createElement('tr');
+
+    const badge = isMaintenance
+      ? `<span class="badge badge-warning">🟠 In Repair</span>`
+      : `<span class="badge badge-danger">🔴 Disposed / Scrap</span>`;
+
+    const reason = isMaintenance
+      ? (asset.damageCategory ? `<strong style="color: var(--warning);">${escapeHtml(asset.damageCategory)}</strong><br>` : '') + escapeHtml(asset.damageNotes || asset.notes || 'Hardware repair required')
+      : (asset.disposalReason ? `<strong style="color: var(--danger);">${escapeHtml(asset.disposalReason)}</strong>` : 'Condemned / E-Waste write off') + (asset.disposalNotes ? `<br><small style="color: var(--text-muted);">${escapeHtml(asset.disposalNotes)}</small>` : '');
+
+    const locationInfo = isMaintenance
+      ? (asset.damageVendor ? `🏢 ${escapeHtml(asset.damageVendor)}` : 'In-House IT Workshop') + (asset.damageCost ? `<br><small style="color: var(--text-muted);">Est: ${escapeHtml(asset.damageCost)}</small>` : '')
+      : `<span style="color: var(--text-muted);">${escapeHtml(asset.disposalMethod || 'Scrapped')}</span>`;
+
+    const userBranch = `<div>📍 ${escapeHtml(branch.name)}</div>` +
+      (asset.previousUser ? `<div style="font-size: 11px; color: var(--text-muted);">Last: <strong>${escapeHtml(asset.previousUser)}</strong></div>` : (asset.assignedTo ? `<div style="font-size: 11px; color: var(--text-muted);">Last: <strong>${escapeHtml(asset.assignedTo)}</strong></div>` : ''));
+
+    const dateLogged = isMaintenance ? (asset.damageDate || '-') : (asset.disposalDate || '-');
+
+    const actions = isMaintenance ? `
+      <div style="display: flex; gap: 6px; justify-content: center;">
+        <button class="btn btn-sm btn-success" onclick="markAssetRepaired('${asset.id}')" title="Mark repair completed and return to stock">
+          ✅ Fixed (To Stock)
+        </button>
+        <button class="btn btn-sm btn-danger" onclick="openDisposalModal('${asset.id}')" title="Unrepairable - move to disposal">
+          🗑️ Scrap
+        </button>
+      </div>
+    ` : `
+      <div style="display: flex; gap: 6px; justify-content: center;">
+        <button class="btn btn-sm btn-outline" onclick="restoreDisposedAsset('${asset.id}')" title="Undo disposal and return to stock">
+          ↩️ Restore
+        </button>
+        <button class="btn btn-sm btn-outline" onclick="printDisposalCertificate('${asset.id}')" title="Print Disposal Certificate">
+          📄 Slip
+        </button>
+      </div>
+    `;
+
+    tr.innerHTML = `
+      <td><span class="asset-tag-badge">${escapeHtml(asset.id)}</span></td>
+      <td>
+        <div style="font-weight: 700; color: var(--text-main);">${escapeHtml(asset.model)}</div>
+        <div style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${asset.serial ? 'S/N: ' + escapeHtml(asset.serial) : 'S/N: N/A'}</div>
+      </td>
+      <td>${badge}</td>
+      <td style="max-width: 250px; font-size: 12px;">${reason}</td>
+      <td style="font-size: 12px;">${locationInfo}</td>
+      <td style="font-size: 12px;">${userBranch}</td>
+      <td style="font-size: 12px; color: var(--text-muted);">${dateLogged}</td>
+      <td>${actions}</td>
+    `;
+    tableBody.appendChild(tr);
+  });
+}
+
+function openReportDamageModal(preselectedAssetId = '') {
+  const assets = getAssets();
+  const select = document.getElementById('damageAssetSelect');
+  if (!select) return;
+
+  select.innerHTML = '<option value="">-- Choose a Laptop --</option>';
+  assets.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a.id;
+    opt.textContent = `💻 [${a.id}] ${a.model} (${a.status}) ${a.assignedTo ? '- User: ' + a.assignedTo : ''}`;
+    select.appendChild(opt);
+  });
+
+  if (preselectedAssetId) {
+    select.value = preselectedAssetId;
+  }
+
+  document.getElementById('damageDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('damageVendor').value = '';
+  document.getElementById('damageCost').value = '';
+  document.getElementById('damageNotes').value = '';
+
+  openModal('damageModal');
+}
+
+function onDamageAssetSelected() {
+  // auto hook if needed
+}
+
+function handleSaveDamage(e) {
+  e.preventDefault();
+  const assetId = document.getElementById('damageAssetSelect').value;
+  if (!assetId) {
+    showToast('Please select a laptop!', 'warning');
+    return;
+  }
+
+  let assets = getAssets();
+  const asset = assets.find(a => a.id === assetId);
+  if (!asset) return;
+
+  if (asset.assignedTo) {
+    asset.previousUser = asset.assignedTo;
+    asset.assignedTo = '';
+    asset.assignedDept = '';
+  }
+
+  asset.status = 'Maintenance';
+  asset.damageCategory = document.getElementById('damageCategory').value;
+  asset.damageDate = document.getElementById('damageDate').value;
+  asset.damageVendor = document.getElementById('damageVendor').value;
+  asset.damageCost = document.getElementById('damageCost').value;
+  asset.damageNotes = document.getElementById('damageNotes').value;
+
+  saveAssets(assets);
+
+  closeModal('damageModal');
+  renderAssets();
+  renderDashboard();
+  renderDamagedDisposed();
+  populateHandoverSelectors();
+
+  showToast(`🛠️ Laptop [${asset.id}] reported as damaged & marked Under Repair!`, 'warning');
+}
+
+function openDisposalModal(preselectedAssetId = '') {
+  const assets = getAssets();
+  const select = document.getElementById('disposalAssetSelect');
+  if (!select) return;
+
+  select.innerHTML = '<option value="">-- Choose a Laptop to Dispose --</option>';
+  assets.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a.id;
+    opt.textContent = `💻 [${a.id}] ${a.model} (${a.status}) ${a.assignedTo ? '- User: ' + a.assignedTo : ''}`;
+    select.appendChild(opt);
+  });
+
+  if (preselectedAssetId) {
+    select.value = preselectedAssetId;
+  }
+
+  document.getElementById('disposalDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('disposalReason').value = '';
+  document.getElementById('disposalNotes').value = '';
+
+  openModal('disposalModal');
+}
+
+function handleSaveDisposal(e) {
+  e.preventDefault();
+  const assetId = document.getElementById('disposalAssetSelect').value;
+  if (!assetId) {
+    showToast('Please select a laptop to dispose!', 'warning');
+    return;
+  }
+
+  let assets = getAssets();
+  const asset = assets.find(a => a.id === assetId);
+  if (!asset) return;
+
+  if (asset.assignedTo) {
+    asset.previousUser = asset.assignedTo;
+    asset.assignedTo = '';
+    asset.assignedDept = '';
+  }
+
+  asset.status = 'Decommissioned';
+  asset.disposalMethod = document.getElementById('disposalMethod').value;
+  asset.disposalDate = document.getElementById('disposalDate').value;
+  asset.disposalReason = document.getElementById('disposalReason').value;
+  asset.disposalNotes = document.getElementById('disposalNotes').value;
+
+  saveAssets(assets);
+
+  closeModal('disposalModal');
+  renderAssets();
+  renderDashboard();
+  renderDamagedDisposed();
+  populateHandoverSelectors();
+
+  showToast(`🗑️ Laptop [${asset.id}] marked as Decommissioned / Disposed!`, 'danger');
+}
+
+function markAssetRepaired(assetId) {
+  if (!confirm(`Mark laptop [${assetId}] as repaired and return it to In-Stock inventory?`)) return;
+
+  let assets = getAssets();
+  const asset = assets.find(a => a.id === assetId);
+  if (!asset) return;
+
+  asset.status = 'In Stock';
+  const today = new Date().toISOString().split('T')[0];
+  asset.notes = (asset.notes ? asset.notes + ' | ' : '') + `Repaired & Returned to Stock on ${today}`;
+
+  saveAssets(assets);
+
+  renderAssets();
+  renderDashboard();
+  renderDamagedDisposed();
+  populateHandoverSelectors();
+
+  showToast(`✅ Laptop [${asset.id}] successfully repaired and returned to In-Stock inventory!`, 'success');
+}
+
+function restoreDisposedAsset(assetId) {
+  if (!confirm(`Restore laptop [${assetId}] back to active inventory?`)) return;
+
+  let assets = getAssets();
+  const asset = assets.find(a => a.id === assetId);
+  if (!asset) return;
+
+  asset.status = 'In Stock';
+  saveAssets(assets);
+
+  renderAssets();
+  renderDashboard();
+  renderDamagedDisposed();
+  populateHandoverSelectors();
+
+  showToast(`↩️ Laptop [${asset.id}] restored to In-Stock inventory!`, 'info');
+}
+
+function printDisposalCertificate(assetId) {
+  const assets = getAssets();
+  const branches = getBranches();
+  const asset = assets.find(a => a.id === assetId);
+  if (!asset) return;
+
+  const branch = branches.find(b => b.id === asset.branchId) || { name: 'HQ' };
+  const today = new Date().toISOString().split('T')[0];
+
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Disposal / Condemnation Certificate - ${asset.id}</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 40px; color: #000; line-height: 1.5; }
+        .cert-box { border: 2px solid #000; padding: 30px; max-width: 750px; margin: 0 auto; }
+        h2 { text-transform: uppercase; margin: 0 0 4px 0; border-bottom: 2px solid #000; padding-bottom: 8px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #999; padding: 8px; font-size: 13px; text-align: left; }
+        th { background: #f0f0f0; }
+        .sig { display: flex; justify-content: space-between; margin-top: 60px; }
+        .sig-line { width: 40%; border-top: 1px solid #000; text-align: center; padding-top: 5px; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="cert-box">
+        <h2>OFFICIAL IT ASSET CONDEMNATION & WRITE-OFF SLIP</h2>
+        <p style="font-size: 12px; margin: 4px 0 20px 0;">NexusIT Operations • Hardware Asset Decommissioning Record</p>
+        <table>
+          <tr><th>Asset Tag:</th><td><strong>${asset.id}</strong></td><th>Condemnation Date:</th><td>${asset.disposalDate || today}</td></tr>
+          <tr><th>Make / Model:</th><td>${escapeHtml(asset.model)}</td><th>Serial Number (S/N):</th><td>${escapeHtml(asset.serial || 'N/A')}</td></tr>
+          <tr><th>Disposal Reason:</th><td colspan="3"><strong>${escapeHtml(asset.disposalReason || 'End of life / Hardware defect')}</strong></td></tr>
+          <tr><th>Disposal Method:</th><td colspan="3">${escapeHtml(asset.disposalMethod || 'Scrapped for Spare Parts')}</td></tr>
+          <tr><th>Last Office / User:</th><td colspan="3">${escapeHtml(branch.name)} ${asset.previousUser ? '• Previous User: ' + escapeHtml(asset.previousUser) : ''}</td></tr>
+          <tr><th>Authorization Notes:</th><td colspan="3">${escapeHtml(asset.disposalNotes || 'Storage medium safely destroyed/erased according to company data privacy guidelines.')}</td></tr>
+        </table>
+        <div class="sig">
+          <div class="sig-line"><strong>IT Administrator</strong><br>Inspection & Verification</div>
+          <div class="sig-line"><strong>Management / Operations Head</strong><br>Approved for Scrap / Write-Off</div>
+        </div>
+      </div>
+      <script>window.onload = function() { window.print(); }<\/script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
+}
+
+function exportDamagedDisposedToCSV() {
+  const assets = getAssets();
+  const branches = getBranches();
+  const faulty = assets.filter(a => a.status === 'Maintenance' || a.status === 'Decommissioned');
+
+  const headers = ['Asset ID', 'Model', 'Serial', 'Status', 'Fault/Disposal Reason', 'Location/Service Center', 'Last User', 'Branch', 'Date Logged', 'Notes'];
+  const rows = faulty.map(a => {
+    const branch = branches.find(b => b.id === a.branchId) || { name: '' };
+    return [
+      a.id,
+      `"${(a.model || '').replace(/"/g, '""')}"`,
+      `"${(a.serial || '').replace(/"/g, '""')}"`,
+      a.status,
+      `"${(a.status === 'Maintenance' ? (a.damageCategory || '') + ': ' + (a.damageNotes || '') : a.disposalReason || '').replace(/"/g, '""')}"`,
+      `"${(a.damageVendor || a.disposalMethod || '').replace(/"/g, '""')}"`,
+      `"${(a.previousUser || a.assignedTo || '').replace(/"/g, '""')}"`,
+      `"${branch.name}"`,
+      a.damageDate || a.disposalDate || '',
+      `"${(a.notes || '').replace(/"/g, '""')}"`
+    ].join(',');
+  });
+
+  const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement('a');
+  link.setAttribute('href', encodedUri);
+  link.setAttribute('download', `NexusIT_Damaged_Disposed_Report_${new Date().toISOString().split('T')[0]}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  showToast('Damaged & Disposed Excel report downloaded!', 'success');
 }
 
 // --- UI Utility Functions ---

@@ -62,6 +62,9 @@
     <button class="nav-tab" data-tab="handover">
       🔄 Laptop Transfer & Handover
     </button>
+    <button class="nav-tab" data-tab="damaged-disposed">
+      ⚠️ Damaged & Disposed
+    </button>
     <button class="nav-tab" data-tab="settings">
       ⚙️ Backup & Settings
     </button>
@@ -98,7 +101,7 @@
           </div>
         </div>
 
-        <div class="stat-card" onclick="switchTab('assets'); document.getElementById('filterStatus').value='Maintenance'; renderAssets();">
+        <div class="stat-card" onclick="switchTab('damaged-disposed'); filterDamagedDisposedTab('Maintenance');">
           <div class="stat-icon orange">⚠️</div>
           <div class="stat-details">
             <h3 id="statMaintenance">0</h3>
@@ -401,7 +404,99 @@
       </div>
     </section>
 
-    <!-- 6. BACKUP & SETTINGS TAB -->
+    <!-- 6. DAMAGED & DISPOSED / SCRAP HUB -->
+    <section id="damaged-disposed" class="tab-pane">
+      <div class="toolbar">
+        <div>
+          <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main);">⚠️ Damaged, Repairs & Disposal Hub</h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+            Track faulty hardware, outside repair center status, and maintain a permanent audit trail of scrapped/disposed laptops.
+          </p>
+        </div>
+        <div class="toolbar-group">
+          <button class="btn btn-outline" onclick="exportDamagedDisposedToCSV()">
+            📥 Export Scrap Report (.csv)
+          </button>
+          <button class="btn btn-warning" onclick="openReportDamageModal()">
+            🛠️ Report Damage / Send to Repair
+          </button>
+          <button class="btn btn-danger" onclick="openDisposalModal()">
+            🗑️ Dispose / Write Off Laptop
+          </button>
+        </div>
+      </div>
+
+      <!-- Metrics Row -->
+      <div class="stats-grid" style="margin-bottom: 20px;">
+        <div class="stat-card" onclick="filterDamagedDisposedTab('Maintenance')">
+          <div class="stat-icon orange">🛠️</div>
+          <div class="stat-details">
+            <h3 id="statDamagedCount">0</h3>
+            <p>Under Repair / Maintenance</p>
+          </div>
+        </div>
+
+        <div class="stat-card" onclick="filterDamagedDisposedTab('Decommissioned')">
+          <div class="stat-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--danger);">🗑️</div>
+          <div class="stat-details">
+            <h3 id="statDisposedCount">0</h3>
+            <p>Disposed / Written Off / Scrap</p>
+          </div>
+        </div>
+
+        <div class="stat-card" onclick="filterDamagedDisposedTab('all')">
+          <div class="stat-icon purple">📋</div>
+          <div class="stat-details">
+            <h3 id="statTotalFaulty">0</h3>
+            <p>Total Non-Active Laptops</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter Controls Toolbar -->
+      <div class="toolbar" style="padding: 10px 16px; margin-bottom: 14px;">
+        <div class="toolbar-group">
+          <button class="btn btn-sm btn-outline active-filter-btn" id="filterBtnAllDamaged" onclick="filterDamagedDisposedTab('all')">
+            All Records (<span id="countAllFaulty">0</span>)
+          </button>
+          <button class="btn btn-sm btn-outline" id="filterBtnMaintenance" onclick="filterDamagedDisposedTab('Maintenance')">
+            🟠 Under Repair / Maintenance (<span id="countMaintenance">0</span>)
+          </button>
+          <button class="btn btn-sm btn-outline" id="filterBtnDecommissioned" onclick="filterDamagedDisposedTab('Decommissioned')">
+            🔴 Disposed & Scrapped (<span id="countDecommissioned">0</span>)
+          </button>
+        </div>
+        <div class="toolbar-group">
+          <div class="search-box" style="min-width: 240px;">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchDamagedInput" placeholder="Search issues, tags, models..." oninput="renderDamagedDisposed()">
+          </div>
+        </div>
+      </div>
+
+      <!-- Damaged & Disposed Data Table -->
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 100px;">Asset Tag</th>
+              <th>Laptop Model & Specs</th>
+              <th style="width: 150px;">Stage / Status</th>
+              <th>Reported Fault / Disposal Reason</th>
+              <th>Location / Repair Vendor</th>
+              <th>Last User / Branch</th>
+              <th style="width: 120px;">Date Logged</th>
+              <th style="width: 190px; text-align: center;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="damagedDisposedTableBody">
+            <!-- Rendered dynamically via JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 7. BACKUP & SETTINGS TAB -->
     <section id="settings" class="tab-pane">
       <div style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
         <div class="settings-card">
@@ -662,6 +757,109 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-outline" onclick="closeModal('visitModal')">Cancel</button>
           <button type="submit" class="btn btn-primary">Schedule Visit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: REPORT DAMAGE / SEND TO REPAIR -->
+  <div id="damageModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>🛠️ Report Damage / Send to Repair</h3>
+        <button class="btn-close" onclick="closeModal('damageModal')">&times;</button>
+      </div>
+      <form id="damageForm" onsubmit="handleSaveDamage(event)">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group col-span-2">
+              <label>Select Faulty Laptop *</label>
+              <select id="damageAssetSelect" required onchange="onDamageAssetSelected()">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Type of Fault / Damage *</label>
+              <select id="damageCategory" required>
+                <option value="Broken Display / Screen">Broken Display / Screen</option>
+                <option value="Motherboard / Power Surge">Motherboard / Power Surge</option>
+                <option value="Liquid Spill / Water Damage">Liquid Spill / Water Damage</option>
+                <option value="Battery / Charging Fault">Battery / Charging Fault</option>
+                <option value="Keyboard / Trackpad Damage">Keyboard / Trackpad Defect</option>
+                <option value="Hard Drive / SSD Crash">Hard Drive / SSD Crash</option>
+                <option value="Physical Body / Hinge Broken">Physical Body / Hinge Broken</option>
+                <option value="Other Hardware Issue">Other Hardware Issue</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Date Reported / Sent to Service *</label>
+              <input type="date" id="damageDate" required>
+            </div>
+            <div class="form-group">
+              <label>Repair Service Center / Technician</label>
+              <input type="text" id="damageVendor" placeholder="e.g. Abans Service / Singer / In-House IT">
+            </div>
+            <div class="form-group">
+              <label>Estimated Repair Cost (Optional)</label>
+              <input type="text" id="damageCost" placeholder="e.g. 15,000 LKR">
+            </div>
+            <div class="form-group col-span-2">
+              <label>Detailed Issue Description & Fault Notes</label>
+              <textarea id="damageNotes" placeholder="Describe the symptoms, error lights, or technician diagnostics..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('damageModal')">Cancel</button>
+          <button type="submit" class="btn btn-warning">🛠️ Mark as Under Repair</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: DISPOSE / WRITE OFF LAPTOP -->
+  <div id="disposalModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 style="color: var(--danger);">🗑️ Dispose / Write Off Laptop (E-Waste / Scrap)</h3>
+        <button class="btn-close" onclick="closeModal('disposalModal')">&times;</button>
+      </div>
+      <form id="disposalForm" onsubmit="handleSaveDisposal(event)">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group col-span-2">
+              <label>Select Laptop to Dispose / Scrap *</label>
+              <select id="disposalAssetSelect" required>
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Disposal Method *</label>
+              <select id="disposalMethod" required>
+                <option value="Scrapped for Spare Parts">Scrapped for Spare Parts (RAM, SSD, Screen)</option>
+                <option value="Certified E-Waste Recycling">Certified E-Waste Recycling</option>
+                <option value="Condemned & Written Off">Condemned & Written Off (Discarded)</option>
+                <option value="Sold to Third Party Scrap">Sold to Third Party Scrap</option>
+                <option value="Donated / Handed Over">Donated / Handed Over</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Disposal / Condemnation Date *</label>
+              <input type="date" id="disposalDate" required>
+            </div>
+            <div class="form-group col-span-2">
+              <label>Reason for Disposal / Condemnation *</label>
+              <input type="text" id="disposalReason" placeholder="e.g. Burnt motherboard, unrepairable cost exceeds replacement, 10+ years obsolete" required>
+            </div>
+            <div class="form-group col-span-2">
+              <label>Disposal Authorization & Notes</label>
+              <textarea id="disposalNotes" placeholder="e.g. Approved by Management. Storage drive securely wiped/destroyed. Gate pass ref #GP-1204"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('disposalModal')">Cancel</button>
+          <button type="submit" class="btn btn-danger">🗑️ Confirm Disposal & Write Off</button>
         </div>
       </form>
     </div>
