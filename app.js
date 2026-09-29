@@ -334,7 +334,7 @@ function renderAssets() {
   if (filtered.length === 0) {
     tableBody.innerHTML = `
       <tr>
-        <td colspan="7" style="text-align: center; padding: 40px; color: #64748b;">
+        <td colspan="8" style="text-align: center; padding: 40px; color: #64748b;">
           ${assets.length === 0 ? '💻 No laptops in inventory yet. Click <strong style="color: #2563eb;">"+ Add Laptop"</strong> to register your first laptop stock!' : '🔍 No laptops found matching your filters. Try resetting search.'}
         </td>
       </tr>
@@ -377,12 +377,15 @@ function renderAssets() {
           <div style="font-weight: 600; color: #1e293b;">👤 ${escapeHtml(asset.assignedTo)}</div>
           <div style="font-size: 11px; color: #64748b;">Dept: ${escapeHtml(asset.assignedDept || 'General')}</div>
           ${asset.assignedDate ? `<div style="font-size: 11px; color: #94a3b8;">Since: ${asset.assignedDate}</div>` : ''}
-          ${asset.previousUser ? `<div style="font-size: 11px; color: #6366f1; margin-top: 3px;">⏮️ Prev: <strong>${escapeHtml(asset.previousUser)}</strong></div>` : ''}
         ` : `
-          <div>
-            <span style="color: #94a3b8; font-style: italic;">${asset.status === 'In Stock' ? 'Available in Store' : 'N/A'}</span>
-            ${asset.previousUser ? `<div style="font-size: 11px; color: #6366f1; margin-top: 3px;">⏮️ Prev User: <strong>${escapeHtml(asset.previousUser)}</strong></div>` : ''}
-          </div>
+          <span style="color: #94a3b8; font-style: italic;">${asset.status === 'In Stock' ? 'Available in Store' : 'N/A'}</span>
+        `}
+      </td>
+      <td>
+        ${asset.previousUser ? `
+          <div style="font-weight: 600; color: #2563eb;">👤 ${escapeHtml(asset.previousUser)}</div>
+        ` : `
+          <span style="color: #cbd5e1;">-</span>
         `}
       </td>
       <td>
