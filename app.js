@@ -323,7 +323,7 @@ function renderAssets() {
     if (branchFilter && a.branchId !== branchFilter) return false;
     // Search query
     if (searchQuery) {
-      const combined = `${a.id} ${a.model} ${a.serial} ${a.specs} ${a.assignedTo} ${a.assignedDept} ${a.notes}`.toLowerCase();
+      const combined = `${a.id} ${a.model} ${a.serial} ${a.specs} ${a.assignedTo} ${a.previousUser || ''} ${a.assignedDept} ${a.notes}`.toLowerCase();
       if (!combined.includes(searchQuery)) return false;
     }
     return true;
@@ -377,8 +377,12 @@ function renderAssets() {
           <div style="font-weight: 600; color: #1e293b;">👤 ${escapeHtml(asset.assignedTo)}</div>
           <div style="font-size: 11px; color: #64748b;">Dept: ${escapeHtml(asset.assignedDept || 'General')}</div>
           ${asset.assignedDate ? `<div style="font-size: 11px; color: #94a3b8;">Since: ${asset.assignedDate}</div>` : ''}
+          ${asset.previousUser ? `<div style="font-size: 11px; color: #6366f1; margin-top: 3px;">⏮️ Prev: <strong>${escapeHtml(asset.previousUser)}</strong></div>` : ''}
         ` : `
-          <span style="color: #94a3b8; font-style: italic;">${asset.status === 'In Stock' ? 'Available in Store' : 'N/A'}</span>
+          <div>
+            <span style="color: #94a3b8; font-style: italic;">${asset.status === 'In Stock' ? 'Available in Store' : 'N/A'}</span>
+            ${asset.previousUser ? `<div style="font-size: 11px; color: #6366f1; margin-top: 3px;">⏮️ Prev User: <strong>${escapeHtml(asset.previousUser)}</strong></div>` : ''}
+          </div>
         `}
       </td>
       <td>
@@ -422,6 +426,7 @@ function openAddAssetModal() {
 
   document.getElementById('assetForm').reset();
   document.getElementById('assetEditId').value = '';
+  if (document.getElementById('assetPreviousUser')) document.getElementById('assetPreviousUser').value = '';
   
   // Generate next Asset ID
   const assets = getAssets();
@@ -449,6 +454,7 @@ function openEditAssetModal(assetId) {
   document.getElementById('assetBranch').value = asset.branchId || '';
   document.getElementById('assetStatus').value = asset.status || 'In Stock';
   document.getElementById('assetCondition').value = asset.condition || 'Good';
+  if (document.getElementById('assetPreviousUser')) document.getElementById('assetPreviousUser').value = asset.previousUser || '';
   document.getElementById('assetAssignedTo').value = asset.assignedTo || '';
   document.getElementById('assetAssignedDept').value = asset.assignedDept || '';
   document.getElementById('assetAssignedDate').value = asset.assignedDate || '';
@@ -485,6 +491,7 @@ function handleSaveAsset(event) {
       branchId: document.getElementById('assetBranch')?.value || '',
       status: document.getElementById('assetStatus')?.value || 'In Stock',
       condition: document.getElementById('assetCondition')?.value || 'Good',
+      previousUser: document.getElementById('assetPreviousUser')?.value?.trim() || '',
       assignedTo: document.getElementById('assetAssignedTo')?.value?.trim() || '',
       assignedDept: document.getElementById('assetAssignedDept')?.value?.trim() || '',
       assignedDate: document.getElementById('assetAssignedDate')?.value || '',
@@ -995,7 +1002,7 @@ function exportAssetsToCSV() {
   const assets = getAssets();
   const branches = getBranches();
 
-  const headers = ['Asset ID', 'Model', 'Serial Number', 'Specs', 'Status', 'Condition', 'Branch Location', 'Assigned To', 'Department', 'Assigned Date', 'Purchase Date', 'Warranty Expiry', 'Notes'];
+  const headers = ['Asset ID', 'Model', 'Serial Number', 'Specs', 'Status', 'Condition', 'Branch Location', 'Current User', 'Previous User', 'Department', 'Assigned Date', 'Purchase Date', 'Warranty Expiry', 'Notes'];
 
   const rows = assets.map(a => {
     const branch = branches.find(b => b.id === a.branchId) || { name: '' };
@@ -1008,6 +1015,7 @@ function exportAssetsToCSV() {
       a.condition,
       `"${(branch.name || '').replace(/"/g, '""')}"`,
       `"${(a.assignedTo || '').replace(/"/g, '""')}"`,
+      `"${(a.previousUser || '').replace(/"/g, '""')}"`,
       `"${(a.assignedDept || '').replace(/"/g, '""')}"`,
       a.assignedDate,
       a.purchaseDate,

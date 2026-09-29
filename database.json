@@ -14,6 +14,23 @@
       "notes": ""
     }
   ],
-  "assets": [],
+  "assets": [
+    {
+      "id": "027",
+      "model": "HP",
+      "serial": "",
+      "category": "Laptop",
+      "specs": "GOOD",
+      "branchId": "BR-01",
+      "status": "In Stock",
+      "condition": "Like New",
+      "assignedTo": "",
+      "assignedDept": "",
+      "assignedDate": "",
+      "purchaseDate": "",
+      "warrantyExpiry": "",
+      "notes": ""
+    }
+  ],
   "visits": []
 }
