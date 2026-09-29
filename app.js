@@ -237,7 +237,7 @@ function renderDashboard() {
     });
 
     // Low stock warning (if < 2 laptops available in stock)
-    if (inStock <= 2) {
+    if (assets.length > 0 && inStock <= 2) {
       attentionItems.push({
         type: '📦 Low Stock Alert',
         badge: 'badge-warning',
@@ -248,7 +248,11 @@ function renderDashboard() {
     }
 
     if (attentionItems.length === 0) {
-      alertsTableBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #10b981; padding: 20px;">✅ All systems normal! No urgent laptop issues or pending alerts.</td></tr>`;
+      if (assets.length === 0 && branches.length === 0) {
+        alertsTableBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #64748b; padding: 28px;">✨ System is clean & ready! Click <strong>"+ Add Laptop"</strong> or <strong>"🏢 Add Office"</strong> to start entering your live IT data.</td></tr>`;
+      } else {
+        alertsTableBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #10b981; padding: 20px;">✅ All systems normal! No urgent laptop issues or pending alerts.</td></tr>`;
+      }
     } else {
       attentionItems.forEach(item => {
         const tr = document.createElement('tr');
@@ -268,30 +272,34 @@ function renderDashboard() {
   const branchSummaryEl = document.getElementById('dashboardBranchDistribution');
   if (branchSummaryEl) {
     branchSummaryEl.innerHTML = '';
-    branches.forEach(b => {
-      const bAssets = assets.filter(a => a.branchId === b.id);
-      const bStock = bAssets.filter(a => a.status === 'In Stock').length;
-      const bInUse = bAssets.filter(a => a.status === 'Assigned').length;
+    if (branches.length === 0) {
+      branchSummaryEl.innerHTML = `<div style="text-align: center; color: #94a3b8; padding: 28px 12px; font-size: 12px;">No branches added yet.<br><button class="btn btn-sm btn-primary" style="margin-top: 10px;" onclick="openAddBranchModal()">➕ Add Office</button></div>`;
+    } else {
+      branches.forEach(b => {
+        const bAssets = assets.filter(a => a.branchId === b.id);
+        const bStock = bAssets.filter(a => a.status === 'In Stock').length;
+        const bInUse = bAssets.filter(a => a.status === 'Assigned').length;
 
-      const card = document.createElement('div');
-      card.className = 'stat-card';
-      card.style.cursor = 'pointer';
-      card.onclick = () => flyToBranch(b.lat, b.lng);
-      card.innerHTML = `
-        <div class="stat-icon ${b.type === 'Headquarters' ? 'blue' : 'indigo'}">
-          ${b.type === 'Headquarters' ? '🏢' : '📍'}
-        </div>
-        <div class="stat-details">
-          <p style="font-weight: 700; color: #1e293b; margin-bottom: 2px;">${escapeHtml(b.name)}</p>
-          <p style="font-size: 11px; color: #64748b;">${escapeHtml(b.city)} • ${escapeHtml(b.contactPerson || 'No Contact')}</p>
-          <div style="font-size: 12px; margin-top: 4px; font-weight: 600;">
-            <span style="color: #2563eb;">${bInUse} In-Use</span>
-            ${bStock > 0 ? ` • <span style="color: #059669;">${bStock} In-Stock</span>` : ''}
+        const card = document.createElement('div');
+        card.className = 'stat-card';
+        card.style.cursor = 'pointer';
+        card.onclick = () => flyToBranch(b.lat, b.lng);
+        card.innerHTML = `
+          <div class="stat-icon ${b.type === 'Headquarters' ? 'blue' : 'indigo'}">
+            ${b.type === 'Headquarters' ? '🏢' : '📍'}
           </div>
-        </div>
-      `;
-      branchSummaryEl.appendChild(card);
-    });
+          <div class="stat-details">
+            <p style="font-weight: 700; color: #1e293b; margin-bottom: 2px;">${escapeHtml(b.name)}</p>
+            <p style="font-size: 11px; color: #64748b;">${escapeHtml(b.city)} • ${escapeHtml(b.contactPerson || 'No Contact')}</p>
+            <div style="font-size: 12px; margin-top: 4px; font-weight: 600;">
+              <span style="color: #2563eb;">${bInUse} In-Use</span>
+              ${bStock > 0 ? ` • <span style="color: #059669;">${bStock} In-Stock</span>` : ''}
+            </div>
+          </div>
+        `;
+        branchSummaryEl.appendChild(card);
+      });
+    }
   }
 }
 
@@ -327,7 +335,7 @@ function renderAssets() {
     tableBody.innerHTML = `
       <tr>
         <td colspan="7" style="text-align: center; padding: 40px; color: #64748b;">
-          🔍 No laptops found matching your filters. Try resetting search or add a new laptop.
+          ${assets.length === 0 ? '💻 No laptops in inventory yet. Click <strong style="color: #2563eb;">"+ Add Laptop"</strong> to register your first laptop stock!' : '🔍 No laptops found matching your filters. Try resetting search.'}
         </td>
       </tr>
     `;
@@ -524,6 +532,18 @@ function renderBranchesList() {
 
   listContainer.innerHTML = '';
   document.getElementById('branchCountBadge').textContent = `${branches.length} Offices`;
+
+  if (branches.length === 0) {
+    listContainer.innerHTML = `
+      <div style="text-align: center; padding: 36px 16px; color: #64748b;">
+        <div style="font-size: 32px; margin-bottom: 8px;">🏢</div>
+        <div style="font-weight: 700; color: #1e293b; margin-bottom: 4px; font-size: 14px;">No Offices Added Yet</div>
+        <div style="font-size: 11px; margin-bottom: 14px;">Add your Head Office or external branches to see them plotted on the map.</div>
+        <button class="btn btn-sm btn-primary" onclick="openAddBranchModal()">➕ Add Office</button>
+      </div>
+    `;
+    return;
+  }
 
   branches.forEach(b => {
     const bAssets = assets.filter(a => a.branchId === b.id);
@@ -1045,12 +1065,13 @@ function restoreDataFromJSON(event) {
   reader.readAsText(file);
 }
 
-function resetToSampleData() {
-  if (!confirm('Are you sure you want to reset everything back to the initial sample data? Your changes will be overwritten.')) return;
-  localStorage.removeItem(STORAGE_KEYS.ASSETS);
-  localStorage.removeItem(STORAGE_KEYS.BRANCHES);
-  localStorage.removeItem(STORAGE_KEYS.VISITS);
-  location.reload();
+function clearAllData() {
+  if (!confirm('Are you sure you want to clear ALL records and start completely empty?')) return;
+  saveAssets([]);
+  saveBranches([]);
+  saveVisits([]);
+  showToast('All records cleared. System is now empty!', 'info');
+  setTimeout(() => location.reload(), 400);
 }
 
 // --- UI Utility Functions ---
