@@ -7,6 +7,64 @@ const STORAGE_KEYS = {
   VISITS: 'nexusit_visits_v1'
 };
 
+let isServerConnected = false;
+
+// Sync with local backend server (database.json)
+async function syncWithServer() {
+  try {
+    const res = await fetch('/api/data');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.assets && data.branches && data.visits) {
+        localStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(data.assets));
+        localStorage.setItem(STORAGE_KEYS.BRANCHES, JSON.stringify(data.branches));
+        localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(data.visits));
+        isServerConnected = true;
+        updateServerStatusBadge(true);
+        return true;
+      }
+    }
+  } catch (e) {
+    // Server not running or file:/// protocol
+    isServerConnected = false;
+  }
+  updateServerStatusBadge(false);
+  return false;
+}
+
+// Persist data directly to disk (database.json) via backend API
+async function persistToServer() {
+  if (!isServerConnected) return;
+  try {
+    const payload = {
+      branches: getBranches(),
+      assets: getAssets(),
+      visits: getVisits()
+    };
+    await fetch('/api/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload, null, 2)
+    });
+  } catch (err) {
+    console.warn('Could not persist to server:', err);
+  }
+}
+
+function updateServerStatusBadge(connected) {
+  const badge = document.getElementById('serverStatusBadge');
+  if (!badge) return;
+  if (connected) {
+    badge.className = 'badge badge-success';
+    badge.innerHTML = '🟢 Server: database.json (Active)';
+    badge.title = 'Live local server connected! All changes are permanently saved to database.json on your computer.';
+  } else {
+    badge.className = 'badge badge-neutral';
+    badge.innerHTML = '💾 Browser Storage: Active';
+    badge.title = 'Saved in local browser memory.';
+  }
+}
+
 // --- Data Accessors ---
 function getAssets() {
   const data = localStorage.getItem(STORAGE_KEYS.ASSETS);
@@ -19,6 +77,7 @@ function getAssets() {
 
 function saveAssets(assets) {
   localStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(assets));
+  persistToServer();
 }
 
 function getBranches() {
@@ -32,6 +91,7 @@ function getBranches() {
 
 function saveBranches(branches) {
   localStorage.setItem(STORAGE_KEYS.BRANCHES, JSON.stringify(branches));
+  persistToServer();
 }
 
 function getVisits() {
@@ -45,10 +105,14 @@ function getVisits() {
 
 function saveVisits(visits) {
   localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(visits));
+  persistToServer();
 }
 
 // --- Application Initialization ---
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Sync with server if running on http://localhost:5000
+  await syncWithServer();
+
   // Ensure default data exists
   getBranches();
   getAssets();
