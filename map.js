@@ -18,7 +18,7 @@ function initOfficeMap() {
   mapInstance = L.map('officeMap', {
     zoomControl: true,
     attributionControl: true
-  }).setView([7.8731, 80.7718], 7.5);
+  }).setView([7.8731, 80.7718], 7.8);
 
   // High quality OpenStreetMap tiles
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -189,3 +189,15 @@ function openScheduleVisitForBranch(branchId) {
     branchSelect.value = branchId;
   }
 }
+
+function fitMapToSriLanka() {
+  if (!mapInstance) return;
+  mapInstance.setView([7.8731, 80.7718], 7.8);
+}
+
+// Keep map responsive to browser resize / zoom
+window.addEventListener('resize', () => {
+  if (mapInstance) {
+    mapInstance.invalidateSize();
+  }
+});

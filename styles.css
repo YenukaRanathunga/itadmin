@@ -471,17 +471,26 @@ body {
 .badge-danger { background: var(--danger-bg); color: var(--danger); }
 .badge-neutral { background: var(--bg-subtle); color: var(--text-muted); }
 
-/* Map View Styles */
+/* Map View Styles - Full-Height Widescreen */
 .map-layout {
   display: grid;
   grid-template-columns: 1fr 380px;
   gap: 20px;
-  min-height: 600px;
+  height: calc(100vh - 195px);
+  min-height: 720px;
 }
 
 @media (max-width: 1024px) {
   .map-layout {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: auto;
+  }
+  .map-container {
+    height: 580px !important;
+  }
+  .branch-sidebar {
+    height: 480px !important;
   }
 }
 
@@ -491,7 +500,7 @@ body {
   border: 1px solid var(--border);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
-  height: 620px;
+  height: 100%;
   position: relative;
 }
 
@@ -535,7 +544,8 @@ body {
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  max-height: 620px;
+  height: 100%;
+  max-height: 100%;
   overflow: hidden;
 }
 

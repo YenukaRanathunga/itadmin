@@ -215,14 +215,19 @@
     <section id="map-view" class="tab-pane">
       <div class="toolbar">
         <div>
-          <h3 style="font-size: 15px; font-weight: 700; color: #1e293b;">🗺️ External Branch Offices & IT Deployment Map</h3>
-          <p style="font-size: 12px; color: #64748b; margin-top: 2px;">
+          <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main);">🗺️ External Branch Offices & IT Deployment Map</h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
             Click on any branch marker on the map to see contact info, deployed laptops, and schedule visits!
           </p>
         </div>
-        <button class="btn btn-primary" onclick="openAddBranchModal()">
-          🏢 Add New Office
-        </button>
+        <div class="toolbar-group">
+          <button class="btn btn-outline" onclick="fitMapToSriLanka()" title="Reset view and center Sri Lanka">
+            🎯 Center Map
+          </button>
+          <button class="btn btn-primary" onclick="openAddBranchModal()">
+            🏢 Add New Office
+          </button>
+        </div>
       </div>
 
       <div class="map-layout">
