@@ -171,11 +171,12 @@
           </div>
 
           <select id="filterStatus" class="filter-select">
-            <option value="">All Statuses</option>
-            <option value="In Stock">🟢 In Stock</option>
-            <option value="Assigned">🔵 Assigned</option>
-            <option value="Maintenance">🟠 Under Maintenance</option>
-            <option value="Decommissioned">🔴 Decommissioned</option>
+            <option value="active" selected>🟢 Active Laptops (In Stock & In Use)</option>
+            <option value="">📋 All Equipment (Inc. Disposed & Repair)</option>
+            <option value="In Stock">🟢 In Stock Only</option>
+            <option value="Assigned">🔵 Assigned Only</option>
+            <option value="Maintenance">🟠 Under Maintenance / Repair</option>
+            <option value="Decommissioned">🔴 Disposed / Scrapped</option>
           </select>
 
           <select id="filterBranch" class="filter-select">
@@ -573,11 +574,11 @@
             </div>
             <div class="form-group">
               <label>Current Status *</label>
-              <select id="assetStatus" onchange="toggleAssignedFields()" required>
+              <select id="assetStatus" onchange="handleAssetStatusChange()" required>
                 <option value="In Stock">🟢 In Stock (Available in IT Store)</option>
                 <option value="Assigned">🔵 Assigned to Employee / Branch</option>
-                <option value="Maintenance">🟠 Under Maintenance / Repair</option>
-                <option value="Decommissioned">🔴 Decommissioned (Retired / Scrap)</option>
+                <option value="Maintenance">🟠 Under Maintenance / Repair (දෝෂ සහිත / නඩත්තු)</option>
+                <option value="Decommissioned">🔴 Disposed / Scrapped (භාවිතයෙන් ඉවත් කළ)</option>
               </select>
             </div>
             <div class="form-group">
@@ -588,17 +589,23 @@
             </div>
             <div class="form-group">
               <label>Hardware Condition</label>
-              <select id="assetCondition">
+              <select id="assetCondition" onchange="handleAssetConditionChange()">
                 <option value="Brand New">Brand New</option>
                 <option value="Like New">Like New</option>
                 <option value="Good">Good</option>
                 <option value="Fair">Fair</option>
-                <option value="Faulty">Faulty (Needs repair)</option>
+                <option value="Faulty">⚠️ Faulty (Needs Repair / කැඩී ඇත)</option>
+                <option value="Disposed">🗑️ Disposed / Scrap (භාවිතයෙන් ඉවත් කළ)</option>
               </select>
             </div>
             <div class="form-group">
               <label>Previous User <span style="color: #64748b; font-weight: normal;">(කලින් පාවිච්චි කළ කෙනා)</span></label>
               <input type="text" id="assetPreviousUser" placeholder="e.g. Kasun / Ex-Staff Name (Optional)">
+            </div>
+
+            <!-- Dynamic Routing Notice for Repair / Disposed -->
+            <div id="repairDisposalNotice" class="col-span-2" style="display: none; border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px; margin-top: 2px;">
+              <span id="repairDisposalNoticeText"></span>
             </div>
             <div class="form-group">
               <label>Purchase Date</label>

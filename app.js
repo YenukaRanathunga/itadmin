@@ -379,14 +379,20 @@ function renderAssets() {
   if (!tableBody) return;
 
   const searchQuery = (document.getElementById('searchAsset')?.value || '').toLowerCase().trim();
-  const statusFilter = document.getElementById('filterStatus')?.value || '';
+  const statusFilter = document.getElementById('filterStatus')?.value || 'active';
   const branchFilter = document.getElementById('filterBranch')?.value || '';
 
   tableBody.innerHTML = '';
 
+  const faultyCount = assets.filter(a => a.status === 'Maintenance' || a.status === 'Decommissioned').length;
+
   const filtered = assets.filter(a => {
     // Status filter
-    if (statusFilter && a.status !== statusFilter) return false;
+    if (statusFilter === 'active') {
+      if (a.status !== 'In Stock' && a.status !== 'Assigned') return false;
+    } else if (statusFilter && a.status !== statusFilter) {
+      return false;
+    }
     // Branch filter
     if (branchFilter && a.branchId !== branchFilter) return false;
     // Search query
@@ -397,7 +403,14 @@ function renderAssets() {
     return true;
   });
 
-  document.getElementById('assetsCount').textContent = `Showing ${filtered.length} of ${assets.length} laptops`;
+  const countEl = document.getElementById('assetsCount');
+  if (countEl) {
+    if (statusFilter === 'active' && faultyCount > 0) {
+      countEl.innerHTML = `Showing <strong>${filtered.length}</strong> active laptops &bull; <a href="javascript:void(0)" onclick="switchTab('damaged-disposed')" style="color: var(--warning); text-decoration: underline; font-weight: 700; cursor: pointer;">⚠️ ${faultyCount} Damaged / Disposed in Hub ↗</a>`;
+    } else {
+      countEl.textContent = `Showing ${filtered.length} of ${assets.length} laptops`;
+    }
+  }
 
   if (filtered.length === 0) {
     tableBody.innerHTML = `
@@ -504,7 +517,9 @@ function openAddAssetModal() {
   const nextNum = assets.length > 0 ? Math.max(...assets.map(a => parseInt(a.id.replace('AST-', '')) || 1000)) + 1 : 1001;
   document.getElementById('assetCustomId').value = `AST-${nextNum}`;
 
-  toggleAssignedFields();
+  document.getElementById('assetStatus').value = 'In Stock';
+  document.getElementById('assetCondition').value = 'Brand New';
+  handleAssetStatusChange();
   openModal('assetModal');
 }
 
@@ -533,8 +548,55 @@ function openEditAssetModal(assetId) {
   document.getElementById('assetWarrantyDate').value = asset.warrantyExpiry || '';
   document.getElementById('assetNotes').value = asset.notes || '';
 
-  toggleAssignedFields();
+  handleAssetStatusChange();
   openModal('assetModal');
+}
+
+function handleAssetConditionChange() {
+  const cond = document.getElementById('assetCondition')?.value;
+  const statusEl = document.getElementById('assetStatus');
+  if (!statusEl) return;
+
+  if (cond === 'Disposed') {
+    statusEl.value = 'Decommissioned';
+  } else if (cond === 'Faulty') {
+    statusEl.value = 'Maintenance';
+  } else if (statusEl.value === 'Maintenance' || statusEl.value === 'Decommissioned') {
+    statusEl.value = 'In Stock';
+  }
+  handleAssetStatusChange();
+}
+
+function handleAssetStatusChange() {
+  const status = document.getElementById('assetStatus')?.value;
+  const condEl = document.getElementById('assetCondition');
+  const noticeEl = document.getElementById('repairDisposalNotice');
+  const noticeText = document.getElementById('repairDisposalNoticeText');
+
+  if (status === 'Decommissioned') {
+    if (condEl && condEl.value !== 'Disposed') condEl.value = 'Disposed';
+    if (noticeEl && noticeText) {
+      noticeEl.style.display = 'block';
+      noticeEl.style.border = '1px dashed var(--danger)';
+      noticeEl.style.background = 'rgba(239, 68, 68, 0.12)';
+      noticeText.innerHTML = '🗑️ <strong>Disposal Notice:</strong> This laptop will be saved and managed directly in the <strong>⚠️ Damaged & Disposed Hub</strong> as <em>Disposed / Scrapped</em>.';
+    }
+  } else if (status === 'Maintenance') {
+    if (condEl && condEl.value !== 'Faulty') condEl.value = 'Faulty';
+    if (noticeEl && noticeText) {
+      noticeEl.style.display = 'block';
+      noticeEl.style.border = '1px dashed var(--warning)';
+      noticeEl.style.background = 'rgba(245, 158, 11, 0.12)';
+      noticeText.innerHTML = '🛠️ <strong>Repair Notice:</strong> This laptop will be saved and managed directly in the <strong>⚠️ Damaged & Disposed Hub</strong> as <em>Under Repair / Maintenance</em>.';
+    }
+  } else {
+    if (condEl && (condEl.value === 'Disposed' || condEl.value === 'Faulty')) {
+      condEl.value = 'Good';
+    }
+    if (noticeEl) noticeEl.style.display = 'none';
+  }
+
+  toggleAssignedFields();
 }
 
 function toggleAssignedFields() {
@@ -576,6 +638,33 @@ function handleSaveAsset(event) {
       return;
     }
 
+    // Auto-normalize Disposed or Faulty/Maintenance assets
+    if (newAssetData.status === 'Decommissioned' || newAssetData.condition === 'Disposed') {
+      newAssetData.status = 'Decommissioned';
+      newAssetData.condition = 'Disposed';
+      if (!newAssetData.disposalDate) {
+        newAssetData.disposalDate = newAssetData.purchaseDate || new Date().toISOString().split('T')[0];
+      }
+      if (!newAssetData.disposalReason) {
+        newAssetData.disposalReason = newAssetData.notes || 'Recorded directly as Disposed / Scrap';
+      }
+      if (!newAssetData.disposalMethod) {
+        newAssetData.disposalMethod = 'E-Waste / Scrap';
+      }
+    } else if (newAssetData.status === 'Maintenance' || newAssetData.condition === 'Faulty') {
+      newAssetData.status = 'Maintenance';
+      newAssetData.condition = 'Faulty';
+      if (!newAssetData.damageDate) {
+        newAssetData.damageDate = new Date().toISOString().split('T')[0];
+      }
+      if (!newAssetData.damageCategory) {
+        newAssetData.damageCategory = 'Hardware Fault';
+      }
+      if (!newAssetData.damageNotes) {
+        newAssetData.damageNotes = newAssetData.notes || 'Recorded as Under Repair';
+      }
+    }
+
     if (editId) {
       const index = assets.findIndex(a => a.id === editId);
       if (index !== -1) {
@@ -590,7 +679,6 @@ function handleSaveAsset(event) {
           return;
         }
         assets[index] = newAssetData;
-        showToast(`Laptop ${assetId} updated successfully!`, 'success');
       }
     } else {
       // Check duplicate ID
@@ -604,7 +692,6 @@ function handleSaveAsset(event) {
         return;
       }
       assets.unshift(newAssetData);
-      showToast(`Laptop ${newAssetData.model} (${newAssetData.id}) saved!`, 'success');
     }
 
     saveAssets(assets);
@@ -612,7 +699,20 @@ function handleSaveAsset(event) {
     renderAssets();
     renderDashboard();
     renderBranchesList();
+    renderDamagedDisposed();
+    populateHandoverSelectors();
     if (mapInstance) renderMapMarkers();
+
+    // Show appropriate confirmation toast
+    if (newAssetData.status === 'Decommissioned') {
+      showToast(`🗑️ Laptop [${newAssetData.id}] saved to ⚠️ Damaged & Disposed Hub (Disposed)!`, 'info');
+    } else if (newAssetData.status === 'Maintenance') {
+      showToast(`🛠️ Laptop [${newAssetData.id}] saved to ⚠️ Damaged & Disposed Hub (Repair)!`, 'warning');
+    } else if (editId) {
+      showToast(`Laptop ${assetId} updated successfully!`, 'success');
+    } else {
+      showToast(`Laptop ${newAssetData.model} (${newAssetData.id}) saved!`, 'success');
+    }
   } catch (err) {
     console.error('Error saving asset:', err);
     showToast('Error saving asset: ' + err.message, 'danger');
@@ -629,6 +729,8 @@ function deleteAsset(assetId) {
   renderAssets();
   renderDashboard();
   renderBranchesList();
+  renderDamagedDisposed();
+  populateHandoverSelectors();
   if (mapInstance) renderMapMarkers();
 }
 
@@ -933,12 +1035,15 @@ function populateHandoverSelectors() {
 
   const currentVal = select.value;
   select.innerHTML = '<option value="">-- Choose a Laptop to Transfer --</option>';
-  assets.forEach(a => {
+  const eligibleAssets = assets.filter(a => a.status !== 'Decommissioned');
+  eligibleAssets.forEach(a => {
     const branch = branches.find(b => b.id === a.branchId) || { name: 'Main Store' };
     const opt = document.createElement('option');
     opt.value = a.id;
     let label = `💻 [${a.id}] ${a.model}`;
-    if (a.assignedTo) {
+    if (a.status === 'Maintenance') {
+      label += ` • (⚠️ Under Repair @ ${branch.name})`;
+    } else if (a.assignedTo) {
       label += ` • (User: ${a.assignedTo} @ ${branch.name})`;
     } else {
       label += ` • (In Stock @ ${branch.name})`;
@@ -947,7 +1052,7 @@ function populateHandoverSelectors() {
     select.appendChild(opt);
   });
 
-  if (currentVal && assets.some(a => a.id === currentVal)) {
+  if (currentVal && eligibleAssets.some(a => a.id === currentVal)) {
     select.value = currentVal;
   }
 }
