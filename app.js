@@ -354,11 +354,15 @@ function renderAssets() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>
-        <span class="asset-tag-badge">${escapeHtml(asset.id)}</span>
+        <span class="asset-tag-badge" style="cursor: pointer;" title="Click to Edit" onclick="openEditAssetModal('${asset.id}')">${escapeHtml(asset.id)}</span>
       </td>
       <td>
-        <div style="font-weight: 700; color: #1e293b;">${escapeHtml(asset.model)}</div>
-        <div style="font-size: 11px; color: #64748b; font-family: monospace;">S/N: ${escapeHtml(asset.serial)}</div>
+        <div style="font-weight: 700; color: #1e293b; cursor: pointer;" title="Click to Edit" onclick="openEditAssetModal('${asset.id}')">${escapeHtml(asset.model)}</div>
+        ${asset.serial ? `
+          <div style="font-size: 11px; color: #64748b; font-family: monospace;">S/N: ${escapeHtml(asset.serial)}</div>
+        ` : `
+          <div style="font-size: 11px; color: #d97706; font-style: italic;">⚠️ S/N: Not Entered (Click Edit to add)</div>
+        `}
         <div style="font-size: 11px; color: #475569; margin-top: 2px;">${escapeHtml(asset.specs || 'N/A')}</div>
       </td>
       <td>
@@ -383,14 +387,14 @@ function renderAssets() {
         </div>
       </td>
       <td>
-        <div style="display: flex; gap: 4px;">
+        <div style="display: flex; gap: 4px; align-items: center;">
+          <button class="btn btn-sm btn-outline" style="color: #2563eb; border-color: #93c5fd; font-weight: 600; padding: 4px 8px;" title="Edit Laptop Details" onclick="openEditAssetModal('${asset.id}')">
+            ✏️ Edit
+          </button>
           <button class="btn btn-sm btn-outline" title="Print Handover / Gate Pass" onclick="openHandoverForAsset('${asset.id}')">
             📄 Form
           </button>
-          <button class="btn btn-sm btn-outline" title="Edit Laptop" onclick="openEditAssetModal('${asset.id}')">
-            ✏️
-          </button>
-          <button class="btn btn-sm btn-danger" title="Delete" onclick="deleteAsset('${asset.id}')">
+          <button class="btn btn-sm btn-danger" style="padding: 4px 6px;" title="Delete" onclick="deleteAsset('${asset.id}')">
             🗑️
           </button>
         </div>
@@ -413,6 +417,9 @@ function setupFilters() {
 // --- Asset CRUD Modals ---
 function openAddAssetModal() {
   document.getElementById('assetModalTitle').textContent = '➕ Add New IT Asset / Laptop';
+  const submitBtn = document.getElementById('assetModalSubmitBtn');
+  if (submitBtn) submitBtn.textContent = 'Save Asset';
+
   document.getElementById('assetForm').reset();
   document.getElementById('assetEditId').value = '';
   
@@ -430,7 +437,10 @@ function openEditAssetModal(assetId) {
   const asset = assets.find(a => a.id === assetId);
   if (!asset) return;
 
-  document.getElementById('assetModalTitle').textContent = `✏️ Edit Asset (${asset.id})`;
+  document.getElementById('assetModalTitle').textContent = `✏️ Edit Laptop (${asset.id})`;
+  const submitBtn = document.getElementById('assetModalSubmitBtn');
+  if (submitBtn) submitBtn.textContent = '💾 Update Laptop Details';
+
   document.getElementById('assetEditId').value = asset.id;
   document.getElementById('assetCustomId').value = asset.id;
   document.getElementById('assetModel').value = asset.model || '';
@@ -462,7 +472,8 @@ function handleSaveAsset(event) {
   event.preventDefault();
   const assets = getAssets();
   const editId = document.getElementById('assetEditId').value;
-  const assetId = editId || document.getElementById('assetCustomId').value || `AST-${Date.now().toString().slice(-4)}`;
+  const customId = document.getElementById('assetCustomId').value.trim();
+  const assetId = customId || editId || `AST-${Date.now().toString().slice(-4)}`;
 
   const newAssetData = {
     id: assetId,
@@ -481,25 +492,40 @@ function handleSaveAsset(event) {
     notes: document.getElementById('assetNotes').value.trim()
   };
 
-  if (!newAssetData.model || !newAssetData.serial) {
-    showToast('Please fill in Model and Serial Number!', 'warning');
+  if (!newAssetData.model) {
+    showToast('Please enter Laptop Model & Brand (e.g. HP / Dell)!', 'warning');
     return;
   }
 
   if (editId) {
     const index = assets.findIndex(a => a.id === editId);
     if (index !== -1) {
+      // Check duplicate ID if ID changed
+      if (assetId !== editId && assets.some(a => a.id.toLowerCase() === assetId.toLowerCase())) {
+        showToast(`An asset with Tag / ID "${assetId}" already exists!`, 'warning');
+        return;
+      }
+      // Check duplicate serial only if user entered a serial
+      if (newAssetData.serial && assets.some(a => a.id !== editId && a.serial && a.serial.toLowerCase() === newAssetData.serial.toLowerCase())) {
+        showToast(`Another laptop with Serial Number "${newAssetData.serial}" already exists!`, 'warning');
+        return;
+      }
       assets[index] = newAssetData;
-      showToast(`Asset ${assetId} updated successfully!`, 'success');
+      showToast(`Laptop ${assetId} updated successfully!`, 'success');
     }
   } else {
-    // Check if duplicate serial
-    if (assets.some(a => a.serial.toLowerCase() === newAssetData.serial.toLowerCase())) {
+    // Check duplicate ID
+    if (assets.some(a => a.id.toLowerCase() === newAssetData.id.toLowerCase())) {
+      showToast(`An asset with Tag / ID "${newAssetData.id}" already exists!`, 'warning');
+      return;
+    }
+    // Check duplicate serial only if serial is entered
+    if (newAssetData.serial && assets.some(a => a.serial && a.serial.toLowerCase() === newAssetData.serial.toLowerCase())) {
       showToast(`A laptop with Serial Number "${newAssetData.serial}" already exists!`, 'warning');
       return;
     }
     assets.unshift(newAssetData);
-    showToast(`New Laptop ${newAssetData.model} added to inventory!`, 'success');
+    showToast(`Laptop ${newAssetData.model} (${newAssetData.id}) saved!`, 'success');
   }
 
   saveAssets(assets);

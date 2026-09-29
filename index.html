@@ -400,8 +400,8 @@
               <input type="text" id="assetModel" placeholder="e.g. Dell Latitude 5420" required>
             </div>
             <div class="form-group">
-              <label>Serial Number (S/N) *</label>
-              <input type="text" id="assetSerial" placeholder="e.g. DL-98214-LK" required>
+              <label>Serial Number (S/N) <span style="color: #64748b; font-weight: normal;">(Optional - Can add later)</span></label>
+              <input type="text" id="assetSerial" placeholder="e.g. DL-98214-LK (or leave blank)">
             </div>
             <div class="form-group">
               <label>Hardware Specifications</label>
@@ -461,7 +461,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline" onclick="closeModal('assetModal')">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save Asset</button>
+          <button type="submit" id="assetModalSubmitBtn" class="btn btn-primary">Save Asset</button>
         </div>
       </form>
     </div>

@@ -1,5 +1,19 @@
-{
-  "branches": [],
+﻿{
+  "branches": [
+    {
+      "id": "BR-01",
+      "name": "HEAD OFFICE",
+      "code": "",
+      "city": "COLOMBO",
+      "address": "",
+      "lat": 6.9271,
+      "lng": 79.8612,
+      "contactPerson": "",
+      "phone": "",
+      "type": "Headquarters",
+      "notes": ""
+    }
+  ],
   "assets": [],
   "visits": []
 }
