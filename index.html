@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexusIT Operations - IT Asset & Branch Office Hub</title>
+  
+  <!-- Leaflet CSS for Interactive Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <!-- App Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="app-header no-print">
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <div class="brand-info">
+        <h1>NexusIT Operations</h1>
+        <p>Enterprise IT Asset & Branch Network Hub</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline" onclick="exportAssetsToCSV()">
+        📥 Export Excel
+      </button>
+      <button class="btn btn-outline" onclick="openAddVisitModal()">
+        🚗 Schedule Visit
+      </button>
+      <button class="btn btn-primary" onclick="openAddAssetModal()">
+        ➕ Add Laptop
+      </button>
+    </div>
+  </header>
+
+  <!-- Navigation Tab Bar -->
+  <nav class="app-nav no-print">
+    <button class="nav-tab active" data-tab="dashboard">
+      📊 Dashboard
+    </button>
+    <button class="nav-tab" data-tab="assets">
+      💻 Laptop Stock & Inventory
+    </button>
+    <button class="nav-tab" data-tab="map-view">
+      🗺️ Branch Offices & Map
+    </button>
+    <button class="nav-tab" data-tab="visits">
+      🚗 Field Visits & On-Site Trips
+    </button>
+    <button class="nav-tab" data-tab="handover">
+      📄 Handover & Gate Pass Slip
+    </button>
+    <button class="nav-tab" data-tab="settings">
+      ⚙️ Backup & Settings
+    </button>
+  </nav>
+
+  <!-- Main Content Area -->
+  <main class="main-content">
+
+    <!-- 1. DASHBOARD TAB -->
+    <section id="dashboard" class="tab-pane active">
+      <!-- KPI Stats Grid -->
+      <div class="stats-grid">
+        <div class="stat-card" onclick="switchTab('assets')">
+          <div class="stat-icon blue">💻</div>
+          <div class="stat-details">
+            <h3 id="statTotalAssets">0</h3>
+            <p>Total Managed Laptops</p>
+          </div>
+        </div>
+
+        <div class="stat-card" onclick="switchTab('assets'); document.getElementById('filterStatus').value='In Stock'; renderAssets();">
+          <div class="stat-icon green">📦</div>
+          <div class="stat-details">
+            <h3 id="statInStock">0</h3>
+            <p>In Stock (Ready to Issue)</p>
+          </div>
+        </div>
+
+        <div class="stat-card" onclick="switchTab('assets'); document.getElementById('filterStatus').value='Assigned'; renderAssets();">
+          <div class="stat-icon purple">👤</div>
+          <div class="stat-details">
+            <h3 id="statAssigned">0</h3>
+            <p>Assigned to Staff/Branches</p>
+          </div>
+        </div>
+
+        <div class="stat-card" onclick="switchTab('assets'); document.getElementById('filterStatus').value='Maintenance'; renderAssets();">
+          <div class="stat-icon orange">⚠️</div>
+          <div class="stat-details">
+            <h3 id="statMaintenance">0</h3>
+            <p>Under Repair / Maintenance</p>
+          </div>
+        </div>
+
+        <div class="stat-card" onclick="switchTab('map-view')">
+          <div class="stat-icon indigo">🏢</div>
+          <div class="stat-details">
+            <h3 id="statBranches">0</h3>
+            <p>Active Branch Offices</p>
+          </div>
+        </div>
+
+        <div class="stat-card" onclick="switchTab('visits')">
+          <div class="stat-icon blue">🚗</div>
+          <div class="stat-details">
+            <h3 id="statUpcomingVisits">0</h3>
+            <p>Upcoming IT Visits</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Alert & Action Items -->
+      <div style="display: grid; grid-template-columns: 1fr 340px; gap: 20px;">
+        <div class="table-container" style="padding: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="font-size: 15px; font-weight: 700; color: #1e293b;">🔔 Immediate Attention & Upcoming Tasks</h3>
+            <span style="font-size: 12px; color: #64748b;">Live IT Operations</span>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 140px;">Type</th>
+                <th>Details & Notes</th>
+                <th style="width: 120px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="dashboardAlertsBody">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Quick Branch Overview Sidebar -->
+        <div style="background: #ffffff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="font-size: 15px; font-weight: 700; color: #1e293b;">🏢 Branch Distribution</h3>
+            <button class="btn btn-sm btn-outline" onclick="switchTab('map-view')">Open Map</button>
+          </div>
+          <div id="dashboardBranchDistribution" style="display: flex; flex-direction: column; gap: 10px; max-height: 480px; overflow-y: auto;">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. LAPTOP INVENTORY TAB -->
+    <section id="assets" class="tab-pane">
+      <!-- Toolbar Filter & Search -->
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchAsset" placeholder="Search by Model, Serial, User, Specs...">
+          </div>
+
+          <select id="filterStatus" class="filter-select">
+            <option value="">All Statuses</option>
+            <option value="In Stock">🟢 In Stock</option>
+            <option value="Assigned">🔵 Assigned</option>
+            <option value="Maintenance">🟠 Under Maintenance</option>
+            <option value="Decommissioned">🔴 Decommissioned</option>
+          </select>
+
+          <select id="filterBranch" class="filter-select">
+            <option value="">All Branches</option>
+            <!-- Rendered dynamically -->
+          </select>
+        </div>
+
+        <div class="toolbar-group">
+          <span id="assetsCount" style="font-size: 13px; color: #64748b; font-weight: 600;"></span>
+          <button class="btn btn-primary" onclick="openAddAssetModal()">
+            ➕ Add Laptop
+          </button>
+        </div>
+      </div>
+
+      <!-- Assets Table -->
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 100px;">Asset Tag</th>
+              <th>Laptop Model & Specs</th>
+              <th style="width: 140px;">Status</th>
+              <th>Branch / Location</th>
+              <th>Assigned To</th>
+              <th>Notes / Remarks</th>
+              <th style="width: 130px; text-align: center;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="assetsTableBody">
+            <!-- Rendered via JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 3. BRANCH OFFICES & MAP TAB -->
+    <section id="map-view" class="tab-pane">
+      <div class="toolbar">
+        <div>
+          <h3 style="font-size: 15px; font-weight: 700; color: #1e293b;">🗺️ External Branch Offices & IT Deployment Map</h3>
+          <p style="font-size: 12px; color: #64748b; margin-top: 2px;">
+            Click on any branch marker on the map to see contact info, deployed laptops, and schedule visits!
+          </p>
+        </div>
+        <button class="btn btn-primary" onclick="openAddBranchModal()">
+          🏢 Add New Office
+        </button>
+      </div>
+
+      <div class="map-layout">
+        <!-- Leaflet Map Container -->
+        <div class="map-container">
+          <div id="officeMap"></div>
+        </div>
+
+        <!-- Branch Directory Sidebar -->
+        <div class="branch-sidebar">
+          <div class="branch-sidebar-header">
+            <h4 style="font-size: 14px; font-weight: 700; color: #1e293b;">Branch Directory</h4>
+            <span id="branchCountBadge" class="badge badge-primary">0 Offices</span>
+          </div>
+          <div id="branchSidebarList" class="branch-list">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. FIELD VISITS TAB -->
+    <section id="visits" class="tab-pane">
+      <div class="toolbar">
+        <div>
+          <h3 style="font-size: 15px; font-weight: 700; color: #1e293b;">🚗 External Office Visits & Maintenance Log</h3>
+          <p style="font-size: 12px; color: #64748b; margin-top: 2px;">
+            Track your trips to external branches, maintenance checklists, and laptop deliveries.
+          </p>
+        </div>
+        <div class="toolbar-group">
+          <span id="visitsCount" style="font-size: 13px; color: #64748b; font-weight: 600;"></span>
+          <button class="btn btn-outline" onclick="exportVisitsToCSV()">📥 Export Trips</button>
+          <button class="btn btn-primary" onclick="openAddVisitModal()">🚗 Schedule New Trip</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 120px;">Date & Ref</th>
+              <th style="width: 220px;">Branch & Staff</th>
+              <th>Purpose & Details</th>
+              <th style="width: 120px;">Status</th>
+              <th>Tasks / Checklist</th>
+              <th style="width: 120px; text-align: center;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="visitsTableBody">
+            <!-- Rendered via JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 5. HANDOVER & GATE PASS GENERATOR TAB (SAY GOODBYE TO PAPER BOOKLETS!) -->
+    <section id="handover" class="tab-pane">
+      <div class="toolbar no-print">
+        <div>
+          <h3 style="font-size: 15px; font-weight: 700; color: #1e293b;">📄 Official Laptop Handover Form & Gate Pass</h3>
+          <p style="font-size: 12px; color: #64748b; margin-top: 2px;">
+            Never write on loose sheets of paper again! Generate and print clean, professional IT handover receipts.
+          </p>
+        </div>
+        <div class="toolbar-group">
+          <button class="btn btn-success" onclick="printHandoverSlip()">
+            🖨️ Print / Save as PDF
+          </button>
+        </div>
+      </div>
+
+      <div class="no-print" style="background: #ffffff; padding: 18px; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 20px;">
+        <h4 style="font-size: 13px; font-weight: 700; margin-bottom: 12px; color: #334155;">1. Select Equipment & Recipient Details</h4>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Select Laptop to Handover *</label>
+            <select id="handoverAssetSelect" onchange="loadHandoverAssetData()">
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Handover Date</label>
+            <input type="date" id="handoverDate" onchange="generateHandoverPreview()">
+          </div>
+          <div class="form-group">
+            <label>Recipient Full Name *</label>
+            <input type="text" id="handoverRecipientName" placeholder="e.g. Kasun Perera" oninput="generateHandoverPreview()">
+          </div>
+          <div class="form-group">
+            <label>Recipient Department / Designation</label>
+            <input type="text" id="handoverDepartment" placeholder="e.g. Accounts Executive" oninput="generateHandoverPreview()">
+          </div>
+          <div class="form-group">
+            <label>Target Branch / Location</label>
+            <select id="handoverBranchSelect" onchange="generateHandoverPreview()">
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Hardware Condition</label>
+            <select id="handoverCondition" onchange="generateHandoverPreview()">
+              <option value="Brand New (Sealed Pack)">Brand New</option>
+              <option value="Good Condition (Tested Working)">Good Condition</option>
+              <option value="Fair / Refurbished">Fair / Refurbished</option>
+            </select>
+          </div>
+          <div class="form-group col-span-2">
+            <label>Issued Accessories</label>
+            <input type="text" id="handoverAccessories" value="Original Power Adapter, Laptop Bag, Wireless Mouse" oninput="generateHandoverPreview()">
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Printable Preview Container -->
+      <div id="handoverPreviewContainer">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+
+    <!-- 6. BACKUP & SETTINGS TAB -->
+    <section id="settings" class="tab-pane">
+      <div style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
+        <div style="background: #ffffff; padding: 24px; border-radius: var(--radius); border: 1px solid var(--border);">
+          <h3 style="font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">📥 Export Your Data to Microsoft Excel</h3>
+          <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">
+            Download all your records in CSV format so you can open them anytime in Excel or send reports to your manager.
+          </p>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <button class="btn btn-outline" onclick="exportAssetsToCSV()">
+              📊 Export Laptops Inventory (.csv)
+            </button>
+            <button class="btn btn-outline" onclick="exportVisitsToCSV()">
+              🚗 Export Branch Visits Log (.csv)
+            </button>
+          </div>
+        </div>
+
+        <div style="background: #ffffff; padding: 24px; border-radius: var(--radius); border: 1px solid var(--border);">
+          <h3 style="font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">💾 Full System Backup & Restore</h3>
+          <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">
+            Save a backup file to your computer or USB drive so your laptop data is never lost.
+          </p>
+          <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <button class="btn btn-primary" onclick="backupAllDataJSON()">
+              💾 Save Full System Backup (.json)
+            </button>
+            <label class="btn btn-outline" style="cursor: pointer; margin: 0;">
+              📂 Restore from Backup
+              <input type="file" accept=".json" onchange="restoreDataFromJSON(event)" style="display: none;">
+            </label>
+          </div>
+        </div>
+
+        <div style="background: #ffffff; padding: 24px; border-radius: var(--radius); border: 1px solid var(--border);">
+          <h3 style="font-size: 16px; font-weight: 700; color: #ef4444; margin-bottom: 6px;">🔄 Reset to Sample Data</h3>
+          <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">
+            Reset all laptops, branch offices, and visits back to the default example data.
+          </p>
+          <button class="btn btn-danger" onclick="resetToSampleData()">
+            ⚠️ Reset Everything to Sample Data
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL: ADD / EDIT ASSET -->
+  <div id="assetModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="assetModalTitle">Add New Laptop / IT Asset</h3>
+        <button class="btn-close" onclick="closeModal('assetModal')">&times;</button>
+      </div>
+      <form id="assetForm" onsubmit="handleSaveAsset(event)">
+        <input type="hidden" id="assetEditId">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Asset Tag / ID *</label>
+              <input type="text" id="assetCustomId" required>
+            </div>
+            <div class="form-group">
+              <label>Laptop Model & Brand *</label>
+              <input type="text" id="assetModel" placeholder="e.g. Dell Latitude 5420" required>
+            </div>
+            <div class="form-group">
+              <label>Serial Number (S/N) *</label>
+              <input type="text" id="assetSerial" placeholder="e.g. DL-98214-LK" required>
+            </div>
+            <div class="form-group">
+              <label>Hardware Specifications</label>
+              <input type="text" id="assetSpecs" placeholder="e.g. Core i5, 16GB RAM, 512GB SSD">
+            </div>
+            <div class="form-group">
+              <label>Current Status *</label>
+              <select id="assetStatus" onchange="toggleAssignedFields()" required>
+                <option value="In Stock">🟢 In Stock (Available in IT Store)</option>
+                <option value="Assigned">🔵 Assigned to Employee / Branch</option>
+                <option value="Maintenance">🟠 Under Maintenance / Repair</option>
+                <option value="Decommissioned">🔴 Decommissioned (Retired / Scrap)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Branch / Office Location *</label>
+              <select id="assetBranch" required>
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Hardware Condition</label>
+              <select id="assetCondition">
+                <option value="Brand New">Brand New</option>
+                <option value="Like New">Like New</option>
+                <option value="Good">Good</option>
+                <option value="Fair">Fair</option>
+                <option value="Faulty">Faulty (Needs repair)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Warranty Expiry Date</label>
+              <input type="date" id="assetWarrantyDate">
+            </div>
+
+            <!-- Dynamic Section when Status is Assigned -->
+            <div id="assignedDetailsSection" class="col-span-2 form-grid" style="display: none; background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+              <div class="form-group">
+                <label>Assigned User / Employee Name</label>
+                <input type="text" id="assetAssignedTo" placeholder="e.g. Kasun Perera">
+              </div>
+              <div class="form-group">
+                <label>Department / Role</label>
+                <input type="text" id="assetAssignedDept" placeholder="e.g. Marketing, Sales">
+              </div>
+              <div class="form-group">
+                <label>Date Assigned</label>
+                <input type="date" id="assetAssignedDate">
+              </div>
+            </div>
+
+            <div class="form-group col-span-2">
+              <label>Notes / Storage Location / Issues</label>
+              <textarea id="assetNotes" placeholder="e.g. Stored in HQ Rack B2. Charger included."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('assetModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Asset</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD / EDIT BRANCH OFFICE -->
+  <div id="branchModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="branchModalTitle">Add Branch Office</h3>
+        <button class="btn-close" onclick="closeModal('branchModal')">&times;</button>
+      </div>
+      <form id="branchForm" onsubmit="handleSaveBranch(event)">
+        <input type="hidden" id="branchEditId">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Office / Branch Name *</label>
+              <input type="text" id="branchName" placeholder="e.g. Kandy Regional Branch" required>
+            </div>
+            <div class="form-group">
+              <label>Branch Code</label>
+              <input type="text" id="branchCode" placeholder="e.g. BR-KDY">
+            </div>
+            <div class="form-group">
+              <label>City / Town *</label>
+              <input type="text" id="branchCity" placeholder="e.g. Kandy" required>
+            </div>
+            <div class="form-group">
+              <label>Office Type</label>
+              <select id="branchType">
+                <option value="Branch Office">Branch Office</option>
+                <option value="Headquarters">Headquarters</option>
+                <option value="Warehouse & Hub">Warehouse & Hub</option>
+                <option value="Service Center">Service Center</option>
+              </select>
+            </div>
+            <div class="form-group col-span-2">
+              <label>Full Address</label>
+              <input type="text" id="branchAddress" placeholder="e.g. 12 Dalada Veediya, Kandy">
+            </div>
+            <div class="form-group">
+              <label>Latitude (GPS)</label>
+              <input type="number" step="any" id="branchLat" placeholder="e.g. 7.2906">
+            </div>
+            <div class="form-group">
+              <label>Longitude (GPS)</label>
+              <input type="number" step="any" id="branchLng" placeholder="e.g. 80.6337">
+            </div>
+            <p class="col-span-2" style="font-size: 11px; color: #2563eb; margin-top: -8px;">
+              💡 Tip: You can also click directly anywhere on the map to set the exact GPS latitude/longitude!
+            </p>
+            <div class="form-group">
+              <label>Contact Person at Office</label>
+              <input type="text" id="branchContact" placeholder="e.g. Dilan Wickramasinghe">
+            </div>
+            <div class="form-group">
+              <label>Contact Phone Number</label>
+              <input type="text" id="branchPhone" placeholder="e.g. +94 71 987 6543">
+            </div>
+            <div class="form-group col-span-2">
+              <label>Office Notes / IT Setup Info</label>
+              <textarea id="branchNotes" placeholder="e.g. 4 staff members, fiber connection available"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('branchModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Branch</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: SCHEDULE FIELD VISIT -->
+  <div id="visitModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="visitModalTitle">🚗 Schedule Branch IT Visit</h3>
+        <button class="btn-close" onclick="closeModal('visitModal')">&times;</button>
+      </div>
+      <form id="visitForm" onsubmit="handleSaveVisit(event)">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Target Branch *</label>
+              <select id="visitBranch" required>
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Visit Date *</label>
+              <input type="date" id="visitDate" required>
+            </div>
+            <div class="form-group">
+              <label>IT Tech / Admin Name</label>
+              <input type="text" id="visitStaff" value="IT Admin (Myself)">
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select id="visitStatus">
+                <option value="Scheduled">Scheduled</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+              </select>
+            </div>
+            <div class="form-group col-span-2">
+              <label>Purpose of Visit *</label>
+              <input type="text" id="visitPurpose" placeholder="e.g. Laptop Delivery & Network Maintenance" required>
+            </div>
+            <div class="form-group col-span-2">
+              <label>Checklist Tasks (One task per line)</label>
+              <textarea id="visitTasks" placeholder="Deliver Dell Latitude to sales manager&#10;Check WiFi router signal&#10;Get handover slip signed"></textarea>
+            </div>
+            <div class="form-group col-span-2">
+              <label>Additional Notes / Parts to Carry</label>
+              <textarea id="visitNotes" placeholder="e.g. Take 2 LAN cables, RJ45 crimper, spare power adapter"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeModal('visitModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Schedule Visit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container no-print"></div>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="data.js"></script>
+  <script src="map.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
