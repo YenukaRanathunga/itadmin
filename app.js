@@ -920,19 +920,32 @@ function deleteVisit(visitId) {
   renderDashboard();
 }
 
-// --- Printable Handover Slip & Gate Pass (Say Goodbye to Notebooks!) ---
+// --- Laptop Transfer & Handover Hub ---
 function populateHandoverSelectors() {
   const assets = getAssets();
+  const branches = getBranches();
   const select = document.getElementById('handoverAssetSelect');
   if (!select) return;
 
-  select.innerHTML = '<option value="">-- Choose a Laptop / Asset --</option>';
+  const currentVal = select.value;
+  select.innerHTML = '<option value="">-- Choose a Laptop to Transfer --</option>';
   assets.forEach(a => {
+    const branch = branches.find(b => b.id === a.branchId) || { name: 'Main Store' };
     const opt = document.createElement('option');
     opt.value = a.id;
-    opt.textContent = `${a.id} - ${a.model} (S/N: ${a.serial}) [${a.status}]`;
+    let label = `💻 [${a.id}] ${a.model}`;
+    if (a.assignedTo) {
+      label += ` • (User: ${a.assignedTo} @ ${branch.name})`;
+    } else {
+      label += ` • (In Stock @ ${branch.name})`;
+    }
+    opt.textContent = label;
     select.appendChild(opt);
   });
+
+  if (currentVal && assets.some(a => a.id === currentVal)) {
+    select.value = currentVal;
+  }
 }
 
 function openHandoverForAsset(assetId) {
@@ -950,16 +963,138 @@ function loadHandoverAssetData() {
   const branches = getBranches();
   const asset = assets.find(a => a.id === assetId);
 
-  if (!asset) return;
+  const activeCard = document.getElementById('transferActiveAssetCard');
+  const successAlert = document.getElementById('transferSuccessAlert');
+  if (successAlert) successAlert.style.display = 'none';
 
+  if (!asset) {
+    if (activeCard) activeCard.style.display = 'none';
+    generateHandoverPreview();
+    return;
+  }
+
+  // Populate active asset info pill
+  if (activeCard) {
+    const currentBranch = branches.find(b => b.id === asset.branchId) || { name: 'HQ / Main Store' };
+    activeCard.style.display = 'block';
+    activeCard.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <span style="font-weight: 700; color: var(--text-main); font-size: 13px;">💻 [Tag ${asset.id}] ${escapeHtml(asset.model)}</span>
+        <span class="badge ${asset.status === 'In Stock' ? 'badge-success' : 'badge-primary'}">${escapeHtml(asset.status)}</span>
+      </div>
+      <div style="display: flex; gap: 14px; flex-wrap: wrap; color: var(--text-muted); font-size: 11px;">
+        <div>📍 Current Branch: <strong style="color: var(--text-main);">${escapeHtml(currentBranch.name)}</strong></div>
+        <div>👤 Current User: <strong style="color: var(--text-main);">${asset.assignedTo ? escapeHtml(asset.assignedTo) : '(In Stock / No User)'}</strong></div>
+        ${asset.previousUser ? `<div>⏪ Previous User: <strong style="color: var(--primary);">${escapeHtml(asset.previousUser)}</strong></div>` : ''}
+      </div>
+    `;
+  }
+
+  // Populate form fields with current values (or empty for new user entry)
   document.getElementById('handoverRecipientName').value = asset.assignedTo || '';
   document.getElementById('handoverDepartment').value = asset.assignedDept || '';
   if (asset.branchId) {
     document.getElementById('handoverBranchSelect').value = asset.branchId;
   }
-  document.getElementById('handoverCondition').value = asset.condition || 'Good';
+  document.getElementById('handoverCondition').value = asset.condition || 'Good Condition (Tested Working)';
+  if (!document.getElementById('handoverDate').value) {
+    document.getElementById('handoverDate').value = new Date().toISOString().split('T')[0];
+  }
 
   generateHandoverPreview();
+}
+
+function executeLaptopTransfer() {
+  const assetSelect = document.getElementById('handoverAssetSelect');
+  const assetId = assetSelect?.value;
+  if (!assetId) {
+    showToast('Please select a laptop to transfer!', 'warning');
+    assetSelect?.focus();
+    return;
+  }
+
+  const branchId = document.getElementById('handoverBranchSelect')?.value;
+  if (!branchId) {
+    showToast('Please select the destination office / branch!', 'warning');
+    return;
+  }
+
+  const newRecipient = (document.getElementById('handoverRecipientName')?.value || '').trim();
+  if (!newRecipient) {
+    showToast('Please enter the employee name to assign this laptop!', 'warning');
+    document.getElementById('handoverRecipientName')?.focus();
+    return;
+  }
+
+  const department = (document.getElementById('handoverDepartment')?.value || '').trim();
+  const transferDate = document.getElementById('handoverDate')?.value || new Date().toISOString().split('T')[0];
+  const condition = document.getElementById('handoverCondition')?.value || 'Good Condition';
+  const accessories = document.getElementById('handoverAccessories')?.value || '';
+
+  const assets = getAssets();
+  const branches = getBranches();
+  const assetIndex = assets.findIndex(a => a.id === assetId);
+
+  if (assetIndex === -1) {
+    showToast('Laptop not found!', 'danger');
+    return;
+  }
+
+  const targetBranch = branches.find(b => b.id === branchId) || { name: 'Office' };
+  const asset = assets[assetIndex];
+
+  // Auto-record previous user!
+  // If the laptop already had an assigned user and it's being transferred to someone else,
+  // move the old user to previousUser automatically!
+  if (asset.assignedTo && asset.assignedTo !== newRecipient) {
+    asset.previousUser = asset.assignedTo;
+  }
+
+  // Update asset with new transfer details
+  asset.assignedTo = newRecipient;
+  asset.assignedDept = department;
+  asset.branchId = branchId;
+  asset.status = 'Assigned';
+  asset.assignedDate = transferDate;
+  if (condition) asset.condition = condition;
+
+  // Persist to database.json on disk!
+  saveAssets(assets);
+
+  // Auto-refresh views everywhere! ("ibe ape current list eka update wenawa")
+  renderAssets();
+  renderDashboard();
+  renderBranchesList();
+  populateHandoverSelectors();
+
+  // Re-select this asset
+  assetSelect.value = assetId;
+  loadHandoverAssetData();
+  generateHandoverPreview();
+
+  // Show celebration message & alert box
+  showToast(`✅ Successfully transferred Laptop [${asset.id}] to ${targetBranch.name} and assigned to ${newRecipient}!`, 'success');
+
+  const alertBox = document.getElementById('transferSuccessAlert');
+  if (alertBox) {
+    alertBox.style.display = 'block';
+    alertBox.innerHTML = `
+      <div style="font-weight: 700; color: var(--success); font-size: 13px; margin-bottom: 4px;">
+        🎉 Transfer Successful & Saved to Database!
+      </div>
+      <p style="font-size: 12px; color: var(--text-main); margin-bottom: 10px;">
+        Laptop <strong>#${asset.id} (${escapeHtml(asset.model)})</strong> is now officially assigned to <strong>${escapeHtml(newRecipient)}</strong> at <strong>${escapeHtml(targetBranch.name)}</strong>. The inventory list has been automatically updated.
+      </p>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="btn btn-sm btn-primary" onclick="printHandoverSlip()">
+          🖨️ Print Handover Slip / PDF
+        </button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="switchTab('assets')">
+          💻 View in Laptop Inventory
+        </button>
+      </div>
+    `;
+  }
 }
 
 function generateHandoverPreview() {

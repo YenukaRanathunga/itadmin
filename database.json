@@ -12,6 +12,19 @@
       "phone": "",
       "type": "Headquarters",
       "notes": ""
+    },
+    {
+      "id": "BR-02",
+      "name": "Badulla",
+      "code": "",
+      "city": "Badulla",
+      "address": "",
+      "lat": 6.9271,
+      "lng": 79.8612,
+      "contactPerson": "",
+      "phone": "",
+      "type": "Branch Office",
+      "notes": ""
     }
   ],
   "assets": [

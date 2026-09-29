@@ -492,6 +492,9 @@ body {
   .branch-sidebar {
     height: 480px !important;
   }
+  .transfer-layout {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 .map-container {

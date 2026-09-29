@@ -60,7 +60,7 @@
       🚗 Field Visits & On-Site Trips
     </button>
     <button class="nav-tab" data-tab="handover">
-      📄 Handover & Gate Pass Slip
+      🔄 Laptop Transfer & Handover
     </button>
     <button class="nav-tab" data-tab="settings">
       ⚙️ Backup & Settings
@@ -284,67 +284,120 @@
       </div>
     </section>
 
-    <!-- 5. HANDOVER & GATE PASS GENERATOR TAB (SAY GOODBYE TO PAPER BOOKLETS!) -->
+    <!-- 5. LAPTOP TRANSFER & HANDOVER HUB -->
     <section id="handover" class="tab-pane">
       <div class="toolbar no-print">
         <div>
-          <h3 style="font-size: 15px; font-weight: 700; color: #1e293b;">📄 Official Laptop Handover Form & Gate Pass</h3>
-          <p style="font-size: 12px; color: #64748b; margin-top: 2px;">
-            Never write on loose sheets of paper again! Generate and print clean, professional IT handover receipts.
+          <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main);">🔄 Laptop Transfer & Branch Handover Hub</h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+            Transfer laptops between branches, assign users, and automatically update your live inventory!
           </p>
         </div>
         <div class="toolbar-group">
+          <button class="btn btn-outline" onclick="switchTab('assets')">
+            💻 View All Laptops
+          </button>
           <button class="btn btn-success" onclick="printHandoverSlip()">
-            🖨️ Print / Save as PDF
+            🖨️ Print Handover Slip / PDF
           </button>
         </div>
       </div>
 
-      <div class="no-print" style="background: #ffffff; padding: 18px; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 20px;">
-        <h4 style="font-size: 13px; font-weight: 700; margin-bottom: 12px; color: #334155;">1. Select Equipment & Recipient Details</h4>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Select Laptop to Handover *</label>
-            <select id="handoverAssetSelect" onchange="loadHandoverAssetData()">
-              <!-- Populated dynamically -->
-            </select>
+      <div class="transfer-layout no-print" style="display: grid; grid-template-columns: 460px 1fr; gap: 20px; align-items: start; margin-bottom: 24px;">
+        <!-- Left Column: Quick Transfer Form -->
+        <div class="settings-card" style="padding: 20px;">
+          <div style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
+            <h3 style="font-size: 16px; font-weight: 800; color: var(--text-main); margin-bottom: 4px;">⚡ Quick Laptop Transfer</h3>
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Select laptop, pick destination office & user, and submit to update inventory automatically.</p>
           </div>
-          <div class="form-group">
-            <label>Handover Date</label>
-            <input type="date" id="handoverDate" onchange="generateHandoverPreview()">
+
+          <form id="transferForm" onsubmit="event.preventDefault(); executeLaptopTransfer();">
+            <!-- 1. Laptop Selection -->
+            <div class="form-group" style="margin-bottom: 14px;">
+              <label style="font-weight: 700; font-size: 13px;">1. Select Laptop to Transfer *</label>
+              <select id="handoverAssetSelect" onchange="loadHandoverAssetData()" style="padding: 10px; font-size: 13px; font-weight: 600;" required>
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+
+            <!-- Active Laptop Info Pill -->
+            <div id="transferActiveAssetCard" style="display: none; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 14px; font-size: 12px;">
+              <!-- Populated via loadHandoverAssetData -->
+            </div>
+
+            <!-- 2. Destination Office -->
+            <div class="form-group" style="margin-bottom: 14px;">
+              <label style="font-weight: 700; font-size: 13px;">2. Destination Office / Branch *</label>
+              <select id="handoverBranchSelect" onchange="generateHandoverPreview()" style="padding: 10px; font-size: 13px;" required>
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+
+            <!-- 3. New User / Employee -->
+            <div class="form-group" style="margin-bottom: 14px;">
+              <label style="font-weight: 700; font-size: 13px;">3. Assign To (User / Employee Name) *</label>
+              <input type="text" id="handoverRecipientName" placeholder="e.g. Kasun Perera / Nuwan Silva" oninput="generateHandoverPreview()" style="padding: 10px; font-size: 13px;" required>
+            </div>
+
+            <!-- 4. Department & Date -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+              <div class="form-group">
+                <label style="font-weight: 600; font-size: 12px;">Department / Role</label>
+                <input type="text" id="handoverDepartment" placeholder="e.g. Sales, Operations" oninput="generateHandoverPreview()">
+              </div>
+              <div class="form-group">
+                <label style="font-weight: 600; font-size: 12px;">Transfer Date</label>
+                <input type="date" id="handoverDate" onchange="generateHandoverPreview()">
+              </div>
+            </div>
+
+            <!-- Optional Details Accordion -->
+            <details style="background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 16px; font-size: 12px;">
+              <summary style="cursor: pointer; font-weight: 600; color: var(--text-muted);">⚙️ Optional Equipment Details (Condition & Accessories)</summary>
+              <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+                <div class="form-group">
+                  <label>Hardware Condition</label>
+                  <select id="handoverCondition" onchange="generateHandoverPreview()">
+                    <option value="Brand New">Brand New</option>
+                    <option value="Good Condition (Tested Working)" selected>Good Condition (Tested Working)</option>
+                    <option value="Fair / Refurbished">Fair / Refurbished</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Issued Accessories</label>
+                  <input type="text" id="handoverAccessories" value="Original Power Adapter, Laptop Bag, Wireless Mouse" oninput="generateHandoverPreview()">
+                </div>
+              </div>
+            </details>
+
+            <!-- Big Action Button -->
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px; font-size: 14px; font-weight: 700; border-radius: var(--radius-sm);">
+              🚀 Confirm Transfer & Update Inventory
+            </button>
+
+            <!-- Success Alert Box -->
+            <div id="transferSuccessAlert" style="display: none; margin-top: 14px; background: var(--success-bg); border: 1px solid var(--success); border-radius: var(--radius-sm); padding: 14px;">
+            </div>
+          </form>
+        </div>
+
+        <!-- Right Column: Live Printable Slip & Security Gate Pass -->
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div class="settings-card" style="padding: 14px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <h4 style="font-size: 14px; font-weight: 700; color: var(--text-main); margin: 0;">📄 Official Handover Slip & Gate Pass Preview</h4>
+              <p style="font-size: 11px; color: var(--text-muted); margin: 2px 0 0 0;">Official documentation for signatures and security gate passes.</p>
+            </div>
+            <button type="button" class="btn btn-success btn-sm" onclick="printHandoverSlip()">
+              🖨️ Print Slip / PDF
+            </button>
           </div>
-          <div class="form-group">
-            <label>Recipient Full Name *</label>
-            <input type="text" id="handoverRecipientName" placeholder="e.g. Kasun Perera" oninput="generateHandoverPreview()">
-          </div>
-          <div class="form-group">
-            <label>Recipient Department / Designation</label>
-            <input type="text" id="handoverDepartment" placeholder="e.g. Accounts Executive" oninput="generateHandoverPreview()">
-          </div>
-          <div class="form-group">
-            <label>Target Branch / Location</label>
-            <select id="handoverBranchSelect" onchange="generateHandoverPreview()">
-              <!-- Populated dynamically -->
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Hardware Condition</label>
-            <select id="handoverCondition" onchange="generateHandoverPreview()">
-              <option value="Brand New (Sealed Pack)">Brand New</option>
-              <option value="Good Condition (Tested Working)">Good Condition</option>
-              <option value="Fair / Refurbished">Fair / Refurbished</option>
-            </select>
-          </div>
-          <div class="form-group col-span-2">
-            <label>Issued Accessories</label>
-            <input type="text" id="handoverAccessories" value="Original Power Adapter, Laptop Bag, Wireless Mouse" oninput="generateHandoverPreview()">
+
+          <!-- Live Printable Preview Container -->
+          <div id="handoverPreviewContainer">
+            <!-- Rendered via JS -->
           </div>
         </div>
-      </div>
-
-      <!-- Live Printable Preview Container -->
-      <div id="handoverPreviewContainer">
-        <!-- Rendered via JS -->
       </div>
     </section>
 
