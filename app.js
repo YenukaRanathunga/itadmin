@@ -39,6 +39,7 @@ async function syncWithServer(isRetry = false) {
           renderBranchesList();
           renderVisits();
           renderTransferHistory();
+          if (typeof renderDamagedDisposed === 'function') renderDamagedDisposed();
         }
         return true;
       }
@@ -47,6 +48,36 @@ async function syncWithServer(isRetry = false) {
     // Server not running or unreachable
     isServerConnected = false;
   }
+
+  // Fallback for cloud/static hosting (e.g. Vercel, GitHub Pages)
+  try {
+    const existingAssets = localStorage.getItem(STORAGE_KEYS.ASSETS);
+    if (!existingAssets || JSON.parse(existingAssets).length === 0) {
+      const staticRes = await fetch('./database.json', { cache: 'no-store' });
+      if (staticRes.ok) {
+        const data = await staticRes.json();
+        if (data.assets && data.branches) {
+          localStorage.setItem(STORAGE_KEYS.ASSETS, JSON.stringify(data.assets));
+          localStorage.setItem(STORAGE_KEYS.BRANCHES, JSON.stringify(data.branches));
+          localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(data.visits || []));
+          if (data.transfers) {
+            localStorage.setItem(STORAGE_KEYS.TRANSFERS, JSON.stringify(data.transfers));
+          }
+          if (isRetry) {
+            renderDashboard();
+            renderAssets();
+            renderBranchesList();
+            renderVisits();
+            renderTransferHistory();
+            if (typeof renderDamagedDisposed === 'function') renderDamagedDisposed();
+          }
+        }
+      }
+    }
+  } catch (err) {
+    // Ignore static fallback error
+  }
+
   updateServerStatusBadge(false);
   return false;
 }
@@ -80,10 +111,19 @@ async function persistToServer() {
 function updateServerStatusBadge(connected) {
   const badge = document.getElementById('serverStatusBadge');
   if (!badge) return;
+  const isCloud = window.location.hostname.includes('vercel.app') || 
+                  window.location.hostname.includes('github.io') || 
+                  (!['localhost', '127.0.0.1'].includes(window.location.hostname) && window.location.protocol.startsWith('http'));
   if (connected) {
     badge.className = 'badge badge-success';
     badge.innerHTML = '🟢 Server: database.json (Saved & Synced)';
     badge.title = 'Live local server connected! All changes are permanently saved to database.json on your computer.';
+    badge.onclick = null;
+    badge.style.cursor = 'default';
+  } else if (isCloud) {
+    badge.className = 'badge badge-success';
+    badge.innerHTML = '🌐 Cloud Live (Vercel)';
+    badge.title = 'Running online! All laptops, branches, and transfers are active.';
     badge.onclick = null;
     badge.style.cursor = 'default';
   } else {
@@ -145,7 +185,9 @@ function getTransfers() {
   if (data) {
     try { return JSON.parse(data); } catch(e) {}
   }
-  return [];
+  const initial = (typeof initialData !== 'undefined' && initialData.transfers) ? initialData.transfers : [];
+  localStorage.setItem(STORAGE_KEYS.TRANSFERS, JSON.stringify(initial));
+  return [...initial];
 }
 
 function saveTransfers(transfers) {
