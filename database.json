@@ -1,4 +1,4 @@
-{
+﻿{
   "branches": [
     {
       "id": "BR-01",
@@ -58,7 +58,7 @@
       "code": "BR-MNR",
       "city": "Mannar",
       "address": "Mannar Regional Office",
-      "lat": 8.9810,
+      "lat": 8.981,
       "lng": 79.9044,
       "contactPerson": "Branch Manager",
       "phone": "+94 23 222 3456",
@@ -71,8 +71,8 @@
       "code": "BR-BTC",
       "city": "Batticaloa",
       "address": "Batticaloa Regional Office",
-      "lat": 7.7170,
-      "lng": 81.7000,
+      "lat": 7.717,
+      "lng": 81.7,
       "contactPerson": "Branch Manager",
       "phone": "+94 65 222 3456",
       "type": "Branch Office",
@@ -85,7 +85,7 @@
       "city": "Kilinochchi",
       "address": "Kilinochchi Regional Office",
       "lat": 9.3803,
-      "lng": 80.3770,
+      "lng": 80.377,
       "contactPerson": "Branch Manager",
       "phone": "+94 21 228 3456",
       "type": "Branch Office",
@@ -146,13 +146,13 @@
       "serial": "",
       "category": "Laptop",
       "specs": "GOOD",
-      "branchId": "BR-01",
-      "status": "In Stock",
+      "branchId": "BR-03",
+      "status": "Assigned",
       "condition": "Like New",
       "previousUser": "Jayanthi",
-      "assignedTo": "",
-      "assignedDept": "",
-      "assignedDate": "",
+      "assignedTo": "Kasun",
+      "assignedDept": "PC",
+      "assignedDate": "2026-09-29",
       "purchaseDate": "",
       "warrantyExpiry": "",
       "notes": ""
@@ -294,5 +294,20 @@
       "notes": ""
     }
   ],
-  "visits": []
+  "visits": [],
+  "transfers": [
+    {
+      "id": "TR-814296",
+      "assetId": "184",
+      "model": "HP",
+      "specs": "GOOD",
+      "fromBranch": "HEAD OFFICE (COLOMBO)",
+      "fromUser": "",
+      "toBranch": "Kandy Branch",
+      "toUser": "Kasun",
+      "department": "PC",
+      "date": "2026-09-29",
+      "timestamp": "2026-09-29T08:16:54.296Z"
+    }
+  ]
 }
